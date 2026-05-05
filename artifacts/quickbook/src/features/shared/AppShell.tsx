@@ -12,11 +12,11 @@ import { FavouritesSheet } from "@/features/profile/FavouritesSheet";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { useAuthStore } from "@/store/authStore";
 import { useFavoritesStore } from "@/store/favoritesStore";
-import { MOCK_NOTIFICATIONS, MOCK_BOOKINGS, type Business, type Service, type StaffMember, type Booking } from "@/data/mock";
+import { MOCK_NOTIFICATIONS, MOCK_BOOKINGS, type Business, type Booking } from "@/data/mock";
 
 type ModalState =
   | { type: "businessDetail"; businessId: string }
-  | { type: "bookingFlow"; business: Business; service?: Service; staff?: StaffMember }
+  | { type: "bookingFlow"; business: Business }
   | { type: "queueTracker"; bookingId: string; businessName: string; businessAddress?: string }
   | { type: "notifications" }
   | { type: "favourites" }
@@ -40,9 +40,9 @@ export function AppShell() {
     setModal({ type: "businessDetail", businessId: id });
   }, []);
 
-  const openBookingFlow = useCallback((business: Business, service?: Service, staff?: StaffMember) => {
+  const openBookingFlow = useCallback((business: Business) => {
     if (!isLoggedIn) { setModal({ type: "login" }); return; }
-    setModal({ type: "bookingFlow", business, service, staff });
+    setModal({ type: "bookingFlow", business });
   }, [isLoggedIn]);
 
   const openQueueTracker = useCallback((bookingId: string, businessName: string, businessAddress?: string) => {
@@ -138,8 +138,6 @@ export function AppShell() {
       {modal?.type === "bookingFlow" && (
         <BookingFlowSheet
           business={modal.business}
-          initialService={modal.service}
-          initialStaff={modal.staff}
           onClose={closeModal}
           onSuccess={booking => { handleBookingSuccess(booking); goToBookings(); }}
         />
