@@ -88,6 +88,7 @@ export const BUSINESSES: Business[] = [
     waitTimeMinutes: 22,
     queueCount: 14,
     phone: "+91 98765 43210",
+    website: "citygeneral.health",
     description: "A multi-specialty hospital offering world-class healthcare. Known for OPD efficiency, advanced diagnostics, and compassionate care.",
     hoursDetail: { Mon: "8 AM – 8 PM", Tue: "8 AM – 8 PM", Wed: "8 AM – 8 PM", Thu: "8 AM – 8 PM", Fri: "8 AM – 8 PM", Sat: "9 AM – 6 PM", Sun: "Closed" },
     services: [
@@ -125,6 +126,7 @@ export const BUSINESSES: Business[] = [
     waitTimeMinutes: 18,
     queueCount: 6,
     phone: "+91 87654 32109",
+    website: "aurorahair.in",
     description: "Premium hair studio specialising in color, keratin, and styling. Known for its welcoming vibe and highly skilled stylists.",
     hoursDetail: { Mon: "Closed", Tue: "10 AM – 8 PM", Wed: "10 AM – 8 PM", Thu: "10 AM – 8 PM", Fri: "10 AM – 8 PM", Sat: "9 AM – 9 PM", Sun: "10 AM – 7 PM" },
     services: [
@@ -161,6 +163,7 @@ export const BUSINESSES: Business[] = [
     waitTimeMinutes: 0,
     queueCount: 0,
     phone: "+91 22 6634 4400",
+    website: "harborgrand.com",
     description: "A 5-star luxury property overlooking the Arabian Sea. Featuring award-winning restaurants, a rooftop infinity pool, and a world-class spa.",
     hoursDetail: { Mon: "Open 24 hrs", Tue: "Open 24 hrs", Wed: "Open 24 hrs", Thu: "Open 24 hrs", Fri: "Open 24 hrs", Sat: "Open 24 hrs", Sun: "Open 24 hrs" },
     services: [
@@ -195,6 +198,8 @@ export const BUSINESSES: Business[] = [
     openNow: true,
     waitTimeMinutes: 10,
     queueCount: 4,
+    phone: "+91 98111 22334",
+    website: "irontemple.fit",
     description: "High-performance fitness centre with premium equipment, dedicated zones for strength, cardio, and functional training.",
     hoursDetail: { Mon: "5 AM – 11 PM", Tue: "5 AM – 11 PM", Wed: "5 AM – 11 PM", Thu: "5 AM – 11 PM", Fri: "5 AM – 11 PM", Sat: "6 AM – 10 PM", Sun: "7 AM – 9 PM" },
     services: [
@@ -231,6 +236,7 @@ export const BUSINESSES: Business[] = [
     waitTimeMinutes: 30,
     queueCount: 22,
     phone: "+91 11 4321 8765",
+    website: "biryaicollective.in",
     description: "Renowned for dum-cooked biryanis crafted from heirloom recipes. Awarded 'Best Biryani in Delhi' 3 years running.",
     hoursDetail: { Mon: "12 PM – 11:30 PM", Tue: "12 PM – 11:30 PM", Wed: "12 PM – 11:30 PM", Thu: "12 PM – 11:30 PM", Fri: "12 PM – 11:30 PM", Sat: "11 AM – 12 AM", Sun: "11 AM – 12 AM" },
     services: [
@@ -264,6 +270,8 @@ export const BUSINESSES: Business[] = [
     openNow: true,
     waitTimeMinutes: 0,
     queueCount: 0,
+    phone: "+91 22 6888 7000",
+    website: "pvrinox.com",
     description: "Mumbai's most premium multiplex with Dolby Atmos, 4DX, and IMAX screens. Luxury recliner seating and gourmet F&B.",
     hoursDetail: { Mon: "9 AM – 12 AM", Tue: "9 AM – 12 AM", Wed: "9 AM – 12 AM", Thu: "9 AM – 12 AM", Fri: "9 AM – 1 AM", Sat: "8 AM – 1 AM", Sun: "8 AM – 12 AM" },
     services: [

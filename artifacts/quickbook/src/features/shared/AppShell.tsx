@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { BottomNav, type TabName } from "@/components/ui/BottomNav";
 import { HomeTab } from "./tabs/HomeTab";
 import { ExploreTab } from "./tabs/ExploreTab";
@@ -17,7 +17,7 @@ import { MOCK_NOTIFICATIONS, MOCK_BOOKINGS, type Business, type Booking } from "
 type ModalState =
   | { type: "businessDetail"; businessId: string }
   | { type: "bookingFlow"; business: Business }
-  | { type: "queueTracker"; bookingId: string; businessName: string; businessAddress?: string }
+  | { type: "queueTracker"; bookingId: string; businessName: string; businessAddress?: string; initialPosition?: number; totalInQueue?: number }
   | { type: "notifications" }
   | { type: "favourites" }
   | { type: "login" }
@@ -45,9 +45,27 @@ export function AppShell() {
     setModal({ type: "bookingFlow", business });
   }, [isLoggedIn]);
 
-  const openQueueTracker = useCallback((bookingId: string, businessName: string, businessAddress?: string) => {
-    setModal({ type: "queueTracker", bookingId, businessName, businessAddress });
+  const openQueueTracker = useCallback((bookingId: string, businessName: string, businessAddress?: string, initialPosition?: number, totalInQueue?: number) => {
+    setModal({ type: "queueTracker", bookingId, businessName, businessAddress, initialPosition, totalInQueue });
   }, []);
+
+  const handleJoinQueue = useCallback((business: Business) => {
+    if (!isLoggedIn) { setModal({ type: "login" }); return; }
+    const token = `Q-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    const booking: Booking = {
+      id: `bk_${Date.now()}`,
+      businessId: business.id,
+      serviceId: business.services[0]?.id ?? "",
+      date: new Date().toISOString().slice(0, 10),
+      time: new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+      persons: 1,
+      status: "in-queue",
+      token,
+      createdAt: new Date().toISOString(),
+    };
+    setBookings(prev => [booking, ...prev]);
+    openQueueTracker(booking.id, business.name, business.address, business.queueCount + 1, business.queueCount + 1);
+  }, [isLoggedIn, openQueueTracker]);
 
   const goToExplore = useCallback((category?: string) => {
     setExploreCategoryFilter(category);
@@ -70,7 +88,7 @@ export function AppShell() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <div className="pb-24 animate-fade-up">
+      <div className="pb-20 animate-fade-up">
         {activeTab === "home" && (
           <HomeTab
             onGoExplore={goToExplore}
@@ -103,7 +121,7 @@ export function AppShell() {
             isLoggedIn={isLoggedIn}
             bookings={bookings}
             onGoHome={() => setActiveTab("home")}
-            onViewQueue={openQueueTracker}
+            onViewQueue={(id, name, addr) => openQueueTracker(id, name, addr)}
             onCancel={cancelBooking}
           />
         )}
@@ -130,7 +148,8 @@ export function AppShell() {
         <BusinessDetailSheet
           businessId={modal.businessId}
           onClose={closeModal}
-          onBook={(biz, svc, staff) => { closeModal(); openBookingFlow(biz, svc, staff); }}
+          onBook={openBookingFlow}
+          onJoinQueue={handleJoinQueue}
           isFavorite={favIds.includes(modal.businessId)}
           onToggleFavorite={toggleFav}
         />
@@ -147,6 +166,8 @@ export function AppShell() {
           bookingId={modal.bookingId}
           businessName={modal.businessName}
           businessAddress={modal.businessAddress}
+          initialPosition={modal.initialPosition}
+          totalInQueue={modal.totalInQueue}
           onClose={closeModal}
         />
       )}

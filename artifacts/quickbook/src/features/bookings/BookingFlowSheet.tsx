@@ -244,7 +244,7 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                       const row = s.charAt(0);
                       const cat = SEAT_CATEGORIES.find(c => c.rows.includes(row));
                       return (
-                        <span key={s} className={cn("px-2.5 py-1 rounded-full text-xs font-bold", cat?.selectedColor)}>
+                        <span key={s} className={cn("px-2.5 py-1 rounded-full text-xs font-bold", cat?.selectedStyle)}>
                           {s}
                         </span>
                       );
