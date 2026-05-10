@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, type FormEvent } from "react";
 import { X, Phone, Lock, User, Mail, ArrowRight, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { User as UserType } from "@/store/authStore";
+import { useSendOtp, useVerifyOtp, useUpdateProfile } from "@/hooks/useAuth";
+import type { ApiUser } from "@/services/api";
 
 interface LoginScreenProps {
   onBack: () => void;
-  onSuccess: (user: UserType) => void;
+  onSuccess: (user: ApiUser, token: string) => void;
 }
 
 type Step = "phone" | "otp" | "profile";
@@ -16,11 +17,18 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const [otpError, setOtpError] = useState("");
   const [countdown, setCountdown] = useState(0);
-  const otpRefs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+  const [pendingUser, setPendingUser] = useState<ApiUser | null>(null);
+  const [pendingToken, setPendingToken] = useState<string>("");
+  const [isNewUser, setIsNewUser] = useState(false);
+
+  const otpRefs = Array.from({ length: 6 }, () => useRef<HTMLInputElement>(null));
+
+  const sendOtp = useSendOtp();
+  const verifyOtp = useVerifyOtp();
+  const updateProfile = useUpdateProfile();
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -31,17 +39,17 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
   function handleSendOtp(e: FormEvent) {
     e.preventDefault();
     if (phone.length !== 10 || !/^\d+$/.test(phone)) {
-      setPhoneError("Enter a valid 10-digit mobile number");
-      return;
+      setPhoneError("Enter a valid 10-digit mobile number"); return;
     }
     setPhoneError("");
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setStep("otp");
-      setCountdown(30);
-      setTimeout(() => otpRefs[0].current?.focus(), 100);
-    }, 1200);
+    sendOtp.mutate(`+91${phone}`, {
+      onSuccess: () => {
+        setStep("otp");
+        setCountdown(30);
+        setTimeout(() => otpRefs[0].current?.focus(), 100);
+      },
+      onError: (e: any) => setPhoneError(e.message ?? "Failed to send OTP"),
+    });
   }
 
   function handleOtpChange(index: number, value: string) {
@@ -50,55 +58,57 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
     next[index] = value.slice(-1);
     setOtp(next);
     setOtpError("");
-    if (value && index < 5) {
-      otpRefs[index + 1].current?.focus();
-    }
+    if (value && index < 5) otpRefs[index + 1].current?.focus();
   }
 
   function handleOtpKeyDown(index: number, e: React.KeyboardEvent) {
-    if (e.key === "Backspace" && !otp[index] && index > 0) {
-      otpRefs[index - 1].current?.focus();
-    }
+    if (e.key === "Backspace" && !otp[index] && index > 0) otpRefs[index - 1].current?.focus();
   }
 
   function handleVerifyOtp(e: FormEvent) {
     e.preventDefault();
     const code = otp.join("");
     if (code.length !== 6) { setOtpError("Enter the 6-digit OTP"); return; }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      if (code === "123456" || true) {
-        setStep("profile");
-      } else {
-        setOtpError("Invalid OTP. Try 123456 for demo.");
-      }
-    }, 1000);
+    verifyOtp.mutate({ phone: `+91${phone}`, code }, {
+      onSuccess: (data) => {
+        setPendingUser(data.user);
+        setPendingToken(data.token);
+        setIsNewUser(data.isNewUser);
+        if (data.isNewUser || !data.user.name) {
+          setStep("profile");
+        } else {
+          onSuccess(data.user, data.token);
+        }
+      },
+      onError: (e: any) => setOtpError(e.message ?? "Invalid OTP. Try 123456 for demo."),
+    });
   }
 
   function handleSignup(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      onSuccess({ id: `u_${Date.now()}`, name: name.trim(), phone, email: email || undefined });
-    }, 800);
+    if (!name.trim() || !pendingToken) return;
+    updateProfile.mutate({ name: name.trim(), email: email || undefined }, {
+      onSuccess: (data) => {
+        onSuccess(data.user, pendingToken);
+      },
+      onError: () => {
+        if (pendingUser) onSuccess({ ...pendingUser, name: name.trim() }, pendingToken);
+      },
+    });
   }
 
   function handleResend() {
     if (countdown > 0) return;
     setOtp(["", "", "", "", "", ""]);
     setCountdown(30);
-    setTimeout(() => otpRefs[0].current?.focus(), 100);
+    sendOtp.mutate(`+91${phone}`, { onSuccess: () => setTimeout(() => otpRefs[0].current?.focus(), 100) });
   }
+
+  const loading = sendOtp.isPending || verifyOtp.isPending || updateProfile.isPending;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 animate-fade-in" onClick={onBack}>
-      <div
-        className="bg-white w-full max-w-[540px] rounded-t-3xl max-h-[90vh] overflow-y-auto animate-slide-up"
-        onClick={e => e.stopPropagation()}
-      >
+      <div className="bg-white w-full max-w-[540px] rounded-t-3xl max-h-[90vh] overflow-y-auto animate-slide-up" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white flex items-center gap-3 px-5 pt-5 pb-4 border-b border-slate-100 z-10">
           <button onClick={step === "phone" ? onBack : () => {
             if (step === "otp") { setStep("phone"); setOtp(["","","","","",""]); }
@@ -114,9 +124,7 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
           <div className="flex gap-1.5">
             {(["phone","otp","profile"] as Step[]).map((s, i) => {
               const idx = ["phone","otp","profile"].indexOf(step);
-              return (
-                <div key={s} className={cn("h-1.5 rounded-full transition-all", i <= idx ? "bg-indigo-500 w-4" : "bg-slate-200 w-1.5")} />
-              );
+              return <div key={s} className={cn("h-1.5 rounded-full transition-all", i <= idx ? "bg-indigo-500 w-4" : "bg-slate-200 w-1.5")} />;
             })}
           </div>
         </div>
@@ -140,7 +148,7 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
                 />
               </div>
               {phoneError && <p className="text-red-500 text-xs -mt-2">{phoneError}</p>}
-              <p className="text-xs text-slate-400">Demo: any 10-digit number works. OTP: <strong>123456</strong></p>
+              <p className="text-xs text-slate-400">Demo: any 10-digit number. OTP: <strong>123456</strong></p>
               <button type="submit" disabled={loading} className="h-14 bg-indigo-500 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60 active:scale-[0.98] transition-all shadow-md shadow-indigo-200">
                 {loading ? <LoadingDots /> : <><span>Get OTP</span><ArrowRight size={16} /></>}
               </button>
@@ -161,8 +169,7 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
                     onKeyDown={e => handleOtpKeyDown(i, e)}
                     className={cn("w-12 h-14 rounded-2xl border text-center text-xl font-bold outline-none transition-all",
                       digit ? "border-indigo-400 bg-indigo-50 text-indigo-600" : "border-slate-200 bg-slate-50",
-                      otpError ? "border-red-300" : "focus:border-indigo-400"
-                    )}
+                      otpError ? "border-red-300" : "focus:border-indigo-400")}
                   />
                 ))}
               </div>

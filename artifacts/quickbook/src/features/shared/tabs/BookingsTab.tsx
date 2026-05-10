@@ -1,14 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { BookingCard } from "@/features/bookings/BookingCard";
 import { BookingDetailSheet } from "@/features/bookings/BookingDetailSheet";
 import { BookingCardSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { BUSINESSES, type Booking, type BookingStatus } from "@/data/mock";
+import { useBookings, useCancelBooking } from "@/hooks/useBookings";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
+import type { ApiBooking } from "@/services/api";
 
-const TABS: { id: "all" | BookingStatus; label: string }[] = [
+type StatusFilter = "all" | "upcoming" | "in-queue" | "completed" | "cancelled";
+
+const TABS: { id: StatusFilter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "upcoming", label: "Upcoming" },
   { id: "in-queue", label: "In Queue" },
@@ -18,21 +21,17 @@ const TABS: { id: "all" | BookingStatus; label: string }[] = [
 
 interface BookingsTabProps {
   isLoggedIn: boolean;
-  bookings: Booking[];
   onGoHome: () => void;
   onViewQueue: (bookingId: string, businessName: string, businessAddress?: string) => void;
-  onCancel: (id: string) => void;
+  onLogin: () => void;
 }
 
-export function BookingsTab({ isLoggedIn, bookings, onGoHome, onViewQueue, onCancel }: BookingsTabProps) {
-  const [activeFilter, setActiveFilter] = useState<"all" | BookingStatus>("all");
-  const [loading, setLoading] = useState(true);
-  const [detailBooking, setDetailBooking] = useState<Booking | null>(null);
+export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin }: BookingsTabProps) {
+  const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
+  const [detailBooking, setDetailBooking] = useState<ApiBooking | null>(null);
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 700);
-    return () => clearTimeout(t);
-  }, []);
+  const { data, isLoading } = useBookings(isLoggedIn);
+  const cancelBooking = useCancelBooking();
 
   if (!isLoggedIn) {
     return (
@@ -42,24 +41,22 @@ export function BookingsTab({ isLoggedIn, bookings, onGoHome, onViewQueue, onCan
           icon={CalendarDays}
           title="Sign in to view bookings"
           description="Your appointments and queue status will appear here."
-          action={{ label: "Sign in", onClick: onGoHome }}
+          action={{ label: "Sign in", onClick: onLogin }}
         />
       </div>
     );
   }
 
-  const filtered = activeFilter === "all" ? bookings : bookings.filter(b => b.status === activeFilter);
-
-  const getBizName = (businessId: string) => BUSINESSES.find(b => b.id === businessId)?.name ?? businessId;
-  const getBizAddress = (businessId: string) => BUSINESSES.find(b => b.id === businessId)?.address;
-  const getServiceName = (businessId: string, serviceId: string) => {
-    const biz = BUSINESSES.find(b => b.id === businessId);
-    return biz?.services.find(s => s.id === serviceId)?.name ?? serviceId;
-  };
+  const bookings = data?.bookings ?? [];
+  const filtered = activeFilter === "all" ? bookings : bookings.filter((b: ApiBooking) => b.status === activeFilter);
 
   const handleCancel = (id: string) => {
-    onCancel(id);
-    toast("Booking cancelled", "success");
+    cancelBooking.mutate(id, {
+      onSuccess: (result) => {
+        toast(`Cancelled — ${result.message}`, "success");
+      },
+      onError: (e: any) => toast(e.message ?? "Cancel failed", "error"),
+    });
   };
 
   return (
@@ -82,19 +79,24 @@ export function BookingsTab({ isLoggedIn, bookings, onGoHome, onViewQueue, onCan
       </div>
 
       <div className="flex flex-col gap-4 pb-6">
-        {loading
+        {isLoading
           ? Array.from({ length: 2 }).map((_, i) => <BookingCardSkeleton key={i} />)
           : filtered.length === 0
-            ? <EmptyState icon={CalendarDays} title="No bookings here" description="Your bookings will appear once you schedule an appointment." action={{ label: "Explore businesses", onClick: onGoHome }} />
-            : filtered.map((b, i) => (
+            ? <EmptyState
+                icon={CalendarDays}
+                title="No bookings here"
+                description="Your bookings will appear once you schedule an appointment."
+                action={{ label: "Explore businesses", onClick: onGoHome }}
+              />
+            : filtered.map((b: ApiBooking, i: number) => (
                 <div key={b.id} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
                   <BookingCard
                     booking={b}
-                    businessName={getBizName(b.businessId)}
-                    serviceName={getServiceName(b.businessId, b.serviceId)}
+                    businessName={b.businessName ?? b.businessId}
+                    serviceName={b.serviceName ?? ""}
                     onViewDetails={() => setDetailBooking(b)}
                     onCancel={handleCancel}
-                    onViewQueue={() => onViewQueue(b.id, getBizName(b.businessId), getBizAddress(b.businessId))}
+                    onViewQueue={() => onViewQueue(b.id, b.businessName ?? "", b.businessAddress)}
                   />
                 </div>
               ))
@@ -104,13 +106,13 @@ export function BookingsTab({ isLoggedIn, bookings, onGoHome, onViewQueue, onCan
       {detailBooking && (
         <BookingDetailSheet
           booking={detailBooking}
-          businessName={getBizName(detailBooking.businessId)}
-          businessAddress={getBizAddress(detailBooking.businessId)}
+          businessName={detailBooking.businessName ?? detailBooking.businessId}
+          businessAddress={detailBooking.businessAddress}
           onClose={() => setDetailBooking(null)}
           onCancel={handleCancel}
           onViewQueue={() => {
             setDetailBooking(null);
-            onViewQueue(detailBooking.id, getBizName(detailBooking.businessId), getBizAddress(detailBooking.businessId));
+            onViewQueue(detailBooking.id, detailBooking.businessName ?? "", detailBooking.businessAddress);
           }}
         />
       )}

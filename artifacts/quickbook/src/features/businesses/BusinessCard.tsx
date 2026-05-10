@@ -1,9 +1,18 @@
 import { Star, Clock, MapPin, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatPriceLevel, formatINR, getCategoryLabel, type Business } from "@/data/mock";
+import type { ApiBusiness } from "@/services/api";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  hospital: "Hospital", salon: "Salon & Spa", hotel: "Hotel",
+  gym: "Gym", restaurant: "Restaurant", entertainment: "Cinema", games: "Gaming",
+};
+
+function formatPriceLevel(level: number) {
+  return "₹".repeat(level) + "₹".repeat(4 - level).replace(/₹/g, "·");
+}
 
 interface BusinessCardProps {
-  business: Business;
+  business: ApiBusiness;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
   onClick: (id: string) => void;
@@ -21,15 +30,14 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
         <img src={business.imageUrl} alt={business.name} className="w-16 h-16 rounded-xl object-cover shrink-0" />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm truncate">{business.name}</p>
-          <p className="text-xs text-slate-400 truncate mt-0.5">{getCategoryLabel(business.category)}</p>
+          <p className="text-xs text-slate-400 truncate mt-0.5">{CATEGORY_LABELS[business.category] ?? business.category}</p>
           <div className="flex items-center gap-2 mt-1 text-xs text-slate-500">
             <span className="flex items-center gap-0.5">
               <Star size={10} className="text-amber-400 fill-amber-400" />
               {business.rating.toFixed(1)}
             </span>
             <span className="flex items-center gap-0.5">
-              <MapPin size={10} />
-              {business.distanceKm} km
+              <MapPin size={10} />{business.distanceKm} km
             </span>
             <span className={cn("font-semibold", business.openNow ? "text-emerald-500" : "text-rose-400")}>
               {business.openNow ? "Open" : "Closed"}
@@ -61,10 +69,7 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
         >
           <Heart size={15} className={cn(isFavorite ? "text-red-500 fill-red-500" : "text-slate-400")} />
         </button>
-        <span className={cn(
-          "absolute bottom-3 left-3 text-xs font-bold px-2.5 py-1 rounded-full shadow",
-          business.openNow ? "bg-emerald-500 text-white" : "bg-slate-600/90 text-white"
-        )}>
+        <span className={cn("absolute bottom-3 left-3 text-xs font-bold px-2.5 py-1 rounded-full shadow", business.openNow ? "bg-emerald-500 text-white" : "bg-slate-600/90 text-white")}>
           {business.openNow ? "Open" : "Closed"}
         </span>
         {business.openNow && business.queueCount > 0 && (
@@ -73,11 +78,10 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
           </span>
         )}
       </div>
-
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-1">
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-indigo-500 mb-0.5">{getCategoryLabel(business.category)}</p>
+            <p className="text-xs font-semibold text-indigo-500 mb-0.5">{CATEGORY_LABELS[business.category] ?? business.category}</p>
             <h3 className="font-bold text-sm leading-tight text-slate-800">{business.name}</h3>
           </div>
           <span className="text-xs text-slate-400 shrink-0 mt-4">{formatPriceLevel(business.priceLevel)}</span>

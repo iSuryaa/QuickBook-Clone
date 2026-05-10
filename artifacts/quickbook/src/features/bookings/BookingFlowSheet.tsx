@@ -1,15 +1,34 @@
 import { useState, useMemo } from "react";
 import { X, ChevronLeft, Calendar, Clock, CheckCircle2, Star, CreditCard, Ticket, PartyPopper, Armchair, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatINR, formatDuration, generateTimeSlots, type Business, type Service, type StaffMember } from "@/data/mock";
-import type { Booking } from "@/data/mock";
+import { useCreateBooking } from "@/hooks/useBookings";
+import type { ApiBusiness, ApiService, ApiStaff, ApiBooking } from "@/services/api";
 import { CinemaSeatSelector, getSeatPrice, SEAT_CATEGORIES } from "./CinemaSeatSelector";
+
+function formatINR(paise: number) {
+  return `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+}
+function formatDuration(mins: number) {
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)}h ${mins % 60 > 0 ? `${mins % 60}m` : ""}`.trim();
+}
+function generateTimeSlots(start: number, end: number, step: number) {
+  const slots: string[] = [];
+  for (let h = start; h < end; h++) {
+    for (let m = 0; m < 60; m += step) {
+      const hour = h % 12 === 0 ? 12 : h % 12;
+      const ampm = h < 12 ? "AM" : "PM";
+      slots.push(`${hour}:${m.toString().padStart(2, "0")} ${ampm}`);
+    }
+  }
+  return slots;
+}
 
 const DAYS_AHEAD = 14;
 const PLATFORM_FEE = 2900;
 
 function getDateOptions() {
-  const opts: { label: string; iso: string; dayNum: string; month: string; weekday: string }[] = [];
+  const opts: { label: string; iso: string; dayNum: string; month: string }[] = [];
   const now = new Date();
   for (let i = 0; i < DAYS_AHEAD; i++) {
     const d = new Date(now);
@@ -18,7 +37,6 @@ function getDateOptions() {
       iso: d.toISOString().slice(0, 10),
       dayNum: d.getDate().toString(),
       month: d.toLocaleDateString("en-IN", { month: "short" }),
-      weekday: d.toLocaleDateString("en-IN", { weekday: "short" }),
       label: i === 0 ? "Today" : i === 1 ? "Tomorrow" : d.toLocaleDateString("en-IN", { weekday: "short" }),
     });
   }
@@ -31,18 +49,14 @@ const STEP_ORDER_NORMAL: Step[] = ["service", "specialist", "datetime", "payment
 const STEP_ORDER_CINEMA: Step[] = ["service", "seats", "datetime", "payment", "success"];
 
 const STEP_TITLES: Record<Step, string> = {
-  service:    "Select service",
-  specialist: "Choose specialist",
-  seats:      "Choose seats",
-  datetime:   "Pick date & time",
-  payment:    "Payment",
-  success:    "Booking confirmed!",
+  service: "Select service", specialist: "Choose specialist",
+  seats: "Choose seats", datetime: "Pick date & time", payment: "Payment", success: "Booking confirmed!",
 };
 
 interface BookingFlowSheetProps {
-  business: Business;
+  business: ApiBusiness & { services: ApiService[]; staff: ApiStaff[] };
   onClose: () => void;
-  onSuccess: (booking: Booking) => void;
+  onSuccess: (booking: ApiBooking) => void;
 }
 
 export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSheetProps) {
@@ -50,33 +64,26 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
   const stepOrder = isCinema ? STEP_ORDER_CINEMA : STEP_ORDER_NORMAL;
 
   const [step, setStep] = useState<Step>("service");
-  const [selectedService, setSelectedService] = useState<Service | null>(business.services[0] ?? null);
-  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+  const [selectedService, setSelectedService] = useState<ApiService | null>(business.services[0] ?? null);
+  const [selectedStaff, setSelectedStaff] = useState<ApiStaff | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [seatCount, setSeatCount] = useState(2);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-  const [loading, setLoading] = useState(false);
   const [confirmedToken, setConfirmedToken] = useState("");
 
+  const createBooking = useCreateBooking();
   const dates = useMemo(() => getDateOptions(), []);
   const timeSlots = useMemo(() => generateTimeSlots(9, 21, 30), []);
 
   const stepIdx = stepOrder.indexOf(step);
   const progressSteps = stepOrder.filter(s => s !== "success");
 
-  const goNext = () => {
-    const next = stepOrder[stepIdx + 1];
-    if (next) setStep(next);
-  };
-  const goBack = () => {
-    if (stepIdx === 0) { onClose(); return; }
-    setStep(stepOrder[stepIdx - 1]);
-  };
+  const goNext = () => { const next = stepOrder[stepIdx + 1]; if (next) setStep(next); };
+  const goBack = () => { if (stepIdx === 0) { onClose(); return; } setStep(stepOrder[stepIdx - 1]); };
 
   const seatTotal = selectedSeats.reduce((acc, s) => acc + getSeatPrice(s), 0);
   const servicePrice = selectedService?.price ?? 0;
-  const total = PLATFORM_FEE;
 
   const canContinue = () => {
     if (step === "service") return !!selectedService;
@@ -85,28 +92,26 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
     return true;
   };
 
-  function handleConfirm() {
-    setLoading(true);
-    setTimeout(() => {
-      const token = `QUE-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-      setConfirmedToken(token);
-      const booking: Booking = {
-        id: `bk_${Date.now()}`,
+  async function handleConfirm() {
+    try {
+      const result = await createBooking.mutateAsync({
         businessId: business.id,
-        serviceId: selectedService?.id ?? "",
+        serviceId: selectedService?.id,
         staffId: selectedStaff?.id,
         date: selectedDate,
         time: selectedTime,
         persons: isCinema ? seatCount : 1,
-        status: "upcoming",
-        token,
-        createdAt: new Date().toISOString(),
-      };
-      setLoading(false);
+        seats: isCinema && selectedSeats.length > 0 ? selectedSeats : undefined,
+      });
+      setConfirmedToken(result.booking.token);
       setStep("success");
-      onSuccess(booking);
-    }, 1400);
+      onSuccess(result.booking);
+    } catch {
+      // error handled by mutation state
+    }
   }
+
+  const loading = createBooking.isPending;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 animate-fade-in" onClick={step === "success" ? undefined : onClose}>
@@ -131,7 +136,6 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
 
         <div className="flex-1 overflow-y-auto no-scrollbar">
 
-          {/* ── Step: Service ── */}
           {step === "service" && (
             <div className="px-5 py-5 flex flex-col gap-3 pb-32 animate-fade-up">
               <p className="text-xs text-slate-400">What can we help you with?</p>
@@ -142,9 +146,7 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold">{svc.name}</p>
                     {svc.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{svc.description}</p>}
-                    {svc.duration > 0 && (
-                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Clock size={9} /> {formatDuration(svc.duration)}</p>
-                    )}
+                    {svc.duration > 0 && <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Clock size={9} /> {formatDuration(svc.duration)}</p>}
                   </div>
                   <div className="flex items-center gap-3 ml-3 shrink-0">
                     <div className="text-right">
@@ -161,13 +163,12 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
               <div className="flex items-start gap-2.5 bg-indigo-50 rounded-2xl p-3.5 border border-indigo-100 mt-1">
                 <Info size={14} className="text-indigo-400 shrink-0 mt-0.5" />
                 <p className="text-xs text-indigo-700 leading-relaxed">
-                  Service prices are shown for your reference. You only pay the platform fee (₹29) to complete the booking.
+                  Service prices are for reference only. You pay just ₹29 as a platform fee to confirm your booking.
                 </p>
               </div>
             </div>
           )}
 
-          {/* ── Step: Specialist ── */}
           {step === "specialist" && !isCinema && (
             <div className="px-5 py-5 flex flex-col gap-3 pb-32 animate-fade-up">
               <button onClick={() => setSelectedStaff(null)}
@@ -185,7 +186,6 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                   {selectedStaff === null && <CheckCircle2 size={12} className="text-white" />}
                 </div>
               </button>
-
               {business.staff.map(st => (
                 <button key={st.id} onClick={() => setSelectedStaff(st)}
                   className={cn("flex items-center gap-4 p-4 bg-white rounded-2xl border text-left transition-all active:scale-[0.99]",
@@ -210,7 +210,6 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
             </div>
           )}
 
-          {/* ── Step: Seat Picker (Cinema) ── */}
           {step === "seats" && isCinema && (
             <div className="px-4 py-5 pb-32 animate-fade-up">
               <div className="bg-white rounded-2xl border border-slate-100 p-4 mb-4 flex items-center gap-3">
@@ -229,13 +228,7 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                   ))}
                 </div>
               </div>
-
-              <CinemaSeatSelector
-                selected={selectedSeats}
-                maxSeats={seatCount}
-                onSelectionChange={setSelectedSeats}
-              />
-
+              <CinemaSeatSelector selected={selectedSeats} maxSeats={seatCount} onSelectionChange={setSelectedSeats} />
               {selectedSeats.length > 0 && (
                 <div className="mt-4 bg-indigo-50 rounded-2xl p-4 border border-indigo-100 animate-fade-up">
                   <p className="text-xs font-bold text-indigo-600 mb-2">Selected seats</p>
@@ -243,22 +236,15 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                     {selectedSeats.map(s => {
                       const row = s.charAt(0);
                       const cat = SEAT_CATEGORIES.find(c => c.rows.includes(row));
-                      return (
-                        <span key={s} className={cn("px-2.5 py-1 rounded-full text-xs font-bold", cat?.selectedStyle)}>
-                          {s}
-                        </span>
-                      );
+                      return <span key={s} className={cn("px-2.5 py-1 rounded-full text-xs font-bold", cat?.selectedStyle)}>{s}</span>;
                     })}
                   </div>
-                  <p className="text-xs text-indigo-600 mt-2 font-semibold">
-                    Seat total (reference): {formatINR(seatTotal)}
-                  </p>
+                  <p className="text-xs text-indigo-600 mt-2 font-semibold">Seat total (reference): {formatINR(seatTotal)}</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* ── Step: Date & Time ── */}
           {step === "datetime" && (
             <div className="px-5 py-5 flex flex-col gap-6 pb-32 animate-fade-up">
               <section>
@@ -292,9 +278,13 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
             </div>
           )}
 
-          {/* ── Step: Payment ── */}
           {step === "payment" && (
             <div className="px-5 py-5 flex flex-col gap-4 pb-32 animate-fade-up">
+              {createBooking.isError && (
+                <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3 text-sm text-red-600">
+                  {(createBooking.error as Error)?.message ?? "Booking failed. Please try again."}
+                </div>
+              )}
               <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
                 <div className="px-4 pt-4 pb-3 border-b border-slate-50 flex items-center gap-3">
                   <img src={business.imageUrl} className="w-10 h-10 rounded-xl object-cover" alt="" />
@@ -304,44 +294,31 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                   </div>
                 </div>
                 <div className="px-4 py-3 flex flex-col gap-3 text-sm">
-                  {selectedService && (
-                    <Row icon={<CheckCircle2 size={13} className="text-indigo-400" />} label="Service" value={selectedService.name} />
-                  )}
-                  {!isCinema && selectedStaff && (
-                    <Row icon={<Star size={13} className="text-indigo-400" />} label="Specialist" value={selectedStaff.name} />
-                  )}
-                  {isCinema && selectedSeats.length > 0 && (
-                    <Row icon={<Armchair size={13} className="text-indigo-400" />} label="Seats" value={selectedSeats.join(", ")} />
-                  )}
+                  {selectedService && <Row icon={<CheckCircle2 size={13} className="text-indigo-400" />} label="Service" value={selectedService.name} />}
+                  {!isCinema && selectedStaff && <Row icon={<Star size={13} className="text-indigo-400" />} label="Specialist" value={selectedStaff.name} />}
+                  {isCinema && selectedSeats.length > 0 && <Row icon={<Armchair size={13} className="text-indigo-400" />} label="Seats" value={selectedSeats.join(", ")} />}
                   <Row icon={<Calendar size={13} className="text-indigo-400" />} label="Date"
                     value={new Date(selectedDate + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} />
                   <Row icon={<Clock size={13} className="text-indigo-400" />} label="Time" value={selectedTime} />
                 </div>
               </div>
 
-              {/* Pricing breakdown */}
               <div className="bg-white rounded-2xl border border-slate-100 p-4 flex flex-col gap-3">
                 <p className="text-xs font-black text-slate-400 uppercase tracking-wider">Price Summary</p>
                 {selectedService && servicePrice > 0 && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500 flex items-center gap-1.5">
-                      <Info size={12} className="text-slate-300" /> Service price (reference)
-                    </span>
+                    <span className="text-slate-500 flex items-center gap-1.5"><Info size={12} className="text-slate-300" /> Service price (reference)</span>
                     <span className="text-slate-400 line-through">{formatINR(servicePrice)}</span>
                   </div>
                 )}
                 {isCinema && seatTotal > 0 && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500 flex items-center gap-1.5">
-                      <Info size={12} className="text-slate-300" /> Seat price (reference)
-                    </span>
+                    <span className="text-slate-500 flex items-center gap-1.5"><Info size={12} className="text-slate-300" /> Seat price (reference)</span>
                     <span className="text-slate-400 line-through">{formatINR(seatTotal)}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-sm border-t border-slate-50 pt-2">
-                  <span className="text-slate-700 font-semibold flex items-center gap-1.5">
-                    <CreditCard size={13} className="text-indigo-400" /> Platform fee
-                  </span>
+                  <span className="text-slate-700 font-semibold flex items-center gap-1.5"><CreditCard size={13} className="text-indigo-400" /> Platform fee</span>
                   <span className="font-bold text-indigo-500">₹29</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-slate-100 pt-2">
@@ -352,12 +329,9 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
 
               <div className="bg-amber-50 rounded-2xl p-4 flex items-start gap-3 border border-amber-100">
                 <Ticket size={15} className="text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-700 leading-relaxed">
-                  You pay only ₹29 to reserve your slot. The service fee is paid directly at the venue.
-                </p>
+                <p className="text-xs text-amber-700 leading-relaxed">You pay only ₹29 to reserve your slot. The service fee is paid directly at the venue.</p>
               </div>
 
-              {/* Payment method */}
               <div className="bg-white rounded-2xl border border-slate-100 p-4">
                 <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">Pay via</p>
                 {["UPI / GPay / PhonePe", "Credit / Debit Card", "Net Banking"].map((method, i) => (
@@ -370,7 +344,6 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
             </div>
           )}
 
-          {/* ── Step: Success ── */}
           {step === "success" && (
             <div className="flex flex-col items-center justify-center py-10 px-6 text-center animate-scale-in">
               <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center mb-5">
@@ -405,9 +378,10 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
               disabled={loading || !canContinue()}
               className="w-full h-14 bg-indigo-500 text-white rounded-2xl font-bold text-sm disabled:opacity-50 shadow-md shadow-indigo-200 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <div className="flex gap-1.5">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-white/80" style={{ animation: `bounce-dot 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
-              ) : step === "payment" ? "Pay ₹29 & Confirm" : step === "seats" ? `Continue (${selectedSeats.length}/${seatCount} selected)` : "Continue"}
+              {loading
+                ? <div className="flex gap-1.5">{[0,1,2].map(i => <div key={i} className="w-2 h-2 rounded-full bg-white/80" style={{ animation: `bounce-dot 1.2s ease-in-out ${i*0.2}s infinite` }} />)}</div>
+                : step === "payment" ? "Pay ₹29 & Confirm" : step === "seats" ? `Continue (${selectedSeats.length}/${seatCount} selected)` : "Continue"
+              }
             </button>
           </div>
         )}
@@ -419,7 +393,6 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
 function Label({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">{children}</p>;
 }
-
 function Row({ icon, label, value }: { icon?: React.ReactNode; label: string; value: string }) {
   return (
     <div className="flex items-center gap-2">
@@ -429,7 +402,6 @@ function Row({ icon, label, value }: { icon?: React.ReactNode; label: string; va
     </div>
   );
 }
-
 function SRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between">

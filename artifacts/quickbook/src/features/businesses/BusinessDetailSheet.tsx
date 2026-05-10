@@ -1,16 +1,16 @@
 import { useState, useMemo } from "react";
 import { ArrowLeft, Share2, Heart, Star, MapPin, Clock, Phone, Globe, Users, ChevronRight, CheckCircle2, Navigation } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatINR, formatDuration, getCategoryLabel, BUSINESSES, type Business } from "@/data/mock";
+import { useBusinessById } from "@/hooks/useBusinesses";
+import type { ApiBusiness, ApiService, ApiStaff } from "@/services/api";
 import { PhotoLightbox } from "@/features/shared/PhotoLightbox";
 
-interface BusinessDetailSheetProps {
-  businessId: string;
-  onClose: () => void;
-  onBook: (business: Business) => void;
-  onJoinQueue: (business: Business) => void;
-  isFavorite: boolean;
-  onToggleFavorite: (id: string) => void;
+function formatINR(paise: number) {
+  return `₹${(paise / 100).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+}
+function formatDuration(mins: number) {
+  if (mins < 60) return `${mins} min`;
+  return `${Math.floor(mins / 60)}h ${mins % 60 > 0 ? `${mins % 60}m` : ""}`.trim();
 }
 
 const MOCK_REVIEWS = [
@@ -21,21 +21,56 @@ const MOCK_REVIEWS = [
   { id: "r5", name: "Meera J.", rating: 5, text: "Exceptional quality. One of the best in the city without a doubt.", time: "1 month ago", avatar: "M" },
 ];
 
-type SubPage = "photos" | "reviews" | "services" | null;
+const CATEGORY_LABELS: Record<string, string> = {
+  hospital: "Hospital", salon: "Salon & Spa", hotel: "Hotel",
+  gym: "Gym", restaurant: "Restaurant", entertainment: "Cinema", games: "Gaming",
+};
 
+type SubPage = "photos" | "reviews" | "services" | null;
 const DAY_KEYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+interface BusinessDetailSheetProps {
+  businessId: string;
+  onClose: () => void;
+  onBook: (business: ApiBusiness & { services: ApiService[]; staff: ApiStaff[] }) => void;
+  onJoinQueue: (business: ApiBusiness) => void;
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
+}
 
 export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, isFavorite, onToggleFavorite }: BusinessDetailSheetProps) {
   const [photoIdx, setPhotoIdx] = useState(0);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [subPage, setSubPage] = useState<SubPage>(null);
-  const business = useMemo(() => BUSINESSES.find(b => b.id === businessId), [businessId]);
 
-  if (!business) return null;
+  const { data: business, isLoading, isError } = useBusinessById(businessId);
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-2 border-indigo-200 border-t-indigo-500 animate-spin" />
+          <p className="text-sm text-slate-400">Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError || !business) {
+    return (
+      <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
+        <div className="text-center px-6">
+          <p className="font-bold text-slate-700 mb-2">Failed to load business</p>
+          <button onClick={onClose} className="text-indigo-500 font-semibold text-sm">Go back</button>
+        </div>
+      </div>
+    );
+  }
 
   const photos = business.photos.length > 0 ? business.photos : [business.imageUrl];
   const hasQueue = business.category === "hospital" || business.category === "salon";
   const today = new Date().toLocaleDateString("en-US", { weekday: "long" }).slice(0, 3);
+  const hoursDetail = business.hoursDetail ? JSON.parse(business.hoursDetail) as Record<string, string> : null;
 
   const handleShare = () => {
     if (navigator.share) {
@@ -47,7 +82,7 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
 
   if (subPage) {
     return (
-      <SubPageWrapper title={subPage === "photos" ? "Photos" : subPage === "reviews" ? `Reviews (${business.reviewCount})` : `All Services`} onClose={() => setSubPage(null)}>
+      <SubPageWrapper title={subPage === "photos" ? "Photos" : subPage === "reviews" ? `Reviews (${business.reviewCount})` : "All Services"} onClose={() => setSubPage(null)}>
         {subPage === "photos" && (
           <div className="grid grid-cols-3 gap-1 p-3">
             {photos.map((p, i) => (
@@ -55,9 +90,7 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
                 <img src={p} alt="" className="w-full h-full object-cover" />
               </button>
             ))}
-            {lightboxIdx !== null && (
-              <PhotoLightbox photos={photos} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
-            )}
+            {lightboxIdx !== null && <PhotoLightbox photos={photos} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />}
           </div>
         )}
         {subPage === "reviews" && (
@@ -94,14 +127,8 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
   return (
     <>
       <div className="fixed inset-0 z-50 bg-white flex flex-col animate-slide-up overflow-hidden">
-        {/* Photo carousel */}
         <div className="relative shrink-0" style={{ height: "48vw", maxHeight: 220, minHeight: 160 }}>
-          <img
-            src={photos[photoIdx]}
-            alt={business.name}
-            className="w-full h-full object-cover"
-          />
-          {/* Carousel dots */}
+          <img src={photos[photoIdx]} alt={business.name} className="w-full h-full object-cover" />
           {photos.length > 1 && (
             <>
               <button onClick={() => setPhotoIdx(i => (i - 1 + photos.length) % photos.length)}
@@ -120,31 +147,24 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
               </div>
             </>
           )}
-          {/* Action buttons */}
-          <button onClick={onClose}
-            className="absolute top-3 left-3 w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
+          <button onClick={onClose} className="absolute top-3 left-3 w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
             <ArrowLeft size={16} className="text-white" />
           </button>
           <div className="absolute top-3 right-3 flex gap-2">
-            <button onClick={handleShare}
-              className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
+            <button onClick={handleShare} className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
               <Share2 size={14} className="text-white" />
             </button>
-            <button onClick={e => { e.stopPropagation(); onToggleFavorite(business.id); }}
-              className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
+            <button onClick={() => onToggleFavorite(business.id)} className="w-8 h-8 rounded-full bg-black/35 backdrop-blur-sm flex items-center justify-center">
               <Heart size={14} className={cn(isFavorite ? "text-red-400 fill-red-400" : "text-white")} />
             </button>
           </div>
         </div>
 
-        {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto no-scrollbar">
-
-          {/* Header section */}
           <div className="px-4 pt-3 pb-3 bg-white">
             <div className="flex items-center justify-between mb-1">
               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-600 text-xs font-bold rounded-full border border-indigo-100">
-                {getCategoryLabel(business.category)}
+                {CATEGORY_LABELS[business.category] ?? business.category}
               </span>
               <span className={cn("text-xs font-bold", business.openNow ? "text-emerald-500" : "text-slate-400")}>
                 {business.openNow ? "Open now" : "Closed"}
@@ -163,7 +183,6 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
             </div>
           </div>
 
-          {/* Wait + Queue cards */}
           {(business.waitTimeMinutes > 0 || business.queueCount > 0) && (
             <div className="px-4 pb-3 flex gap-3">
               <div className="flex-1 flex items-center gap-2.5 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-100">
@@ -183,11 +202,9 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
             </div>
           )}
 
-          {/* Action buttons */}
           <div className="px-4 pb-4 flex gap-3">
             {business.phone && (
-              <a href={`tel:${business.phone}`}
-                className="flex-1 flex items-center justify-center gap-2 h-10 bg-slate-100 rounded-xl text-sm font-semibold text-slate-700 active:opacity-75">
+              <a href={`tel:${business.phone}`} className="flex-1 flex items-center justify-center gap-2 h-10 bg-slate-100 rounded-xl text-sm font-semibold text-slate-700 active:opacity-75">
                 <Phone size={15} className="text-slate-500" /> Call
               </a>
             )}
@@ -198,7 +215,6 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
 
           <div className="h-px bg-slate-100 mx-4" />
 
-          {/* About */}
           <div className="px-4 py-4">
             <h2 className="font-bold text-base text-slate-900 mb-2">About</h2>
             <p className="text-sm text-slate-600 leading-relaxed mb-3">{business.description}</p>
@@ -226,7 +242,6 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
 
           <div className="h-px bg-slate-100 mx-4" />
 
-          {/* Photos */}
           {photos.length > 0 && (
             <div className="px-4 py-4">
               <div className="flex items-center justify-between mb-2.5">
@@ -239,8 +254,7 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 {photos.slice(0, 3).map((p, i) => (
-                  <button key={i} onClick={() => setLightboxIdx(i)}
-                    className="aspect-[4/3] rounded-lg overflow-hidden active:opacity-80 transition-opacity">
+                  <button key={i} onClick={() => setLightboxIdx(i)} className="aspect-[4/3] rounded-lg overflow-hidden active:opacity-80 transition-opacity">
                     <img src={p} alt="" className="w-full h-full object-cover" loading="lazy" />
                   </button>
                 ))}
@@ -250,7 +264,6 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
 
           <div className="h-px bg-slate-100 mx-4" />
 
-          {/* Amenities */}
           {business.amenities.length > 0 && (
             <>
               <div className="px-4 py-4">
@@ -267,14 +280,13 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
             </>
           )}
 
-          {/* Opening Hours — full list */}
-          {business.hoursDetail && (
+          {hoursDetail && (
             <>
               <div className="px-4 py-4">
                 <h2 className="font-bold text-base text-slate-900 mb-2.5">Opening hours</h2>
                 <div className="flex flex-col divide-y divide-slate-50">
                   {DAY_KEYS.map(day => {
-                    const hrs = business.hoursDetail?.[day] ?? "—";
+                    const hrs = hoursDetail[day] ?? "—";
                     const isToday = day === today;
                     return (
                       <div key={day} className={cn("flex items-center justify-between py-2", isToday && "bg-indigo-50/50 -mx-1 px-1 rounded-lg")}>
@@ -293,32 +305,32 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
             </>
           )}
 
-          {/* Services */}
-          <div className="px-4 py-4">
-            <div className="flex items-center justify-between mb-2.5">
-              <h2 className="font-bold text-base text-slate-900">Services</h2>
-              {business.services.length > 2 && (
-                <button onClick={() => setSubPage("services")} className="text-xs text-indigo-500 font-semibold flex items-center gap-0.5">
-                  See all <ChevronRight size={12} />
-                </button>
-              )}
-            </div>
-            <div className="flex flex-col divide-y divide-slate-100 bg-white rounded-xl border border-slate-100 overflow-hidden">
-              {business.services.slice(0, 2).map(svc => (
-                <div key={svc.id} className="flex items-center justify-between px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800">{svc.name}</p>
-                    {svc.duration > 0 && <p className="text-xs text-slate-400 mt-0.5">{formatDuration(svc.duration)}</p>}
+          {business.services.length > 0 && (
+            <div className="px-4 py-4">
+              <div className="flex items-center justify-between mb-2.5">
+                <h2 className="font-bold text-base text-slate-900">Services</h2>
+                {business.services.length > 2 && (
+                  <button onClick={() => setSubPage("services")} className="text-xs text-indigo-500 font-semibold flex items-center gap-0.5">
+                    See all <ChevronRight size={12} />
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-col divide-y divide-slate-100 bg-white rounded-xl border border-slate-100 overflow-hidden">
+                {business.services.slice(0, 2).map(svc => (
+                  <div key={svc.id} className="flex items-center justify-between px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-800">{svc.name}</p>
+                      {svc.duration > 0 && <p className="text-xs text-slate-400 mt-0.5">{formatDuration(svc.duration)}</p>}
+                    </div>
+                    <span className="text-sm font-bold text-slate-700 ml-3 shrink-0">{svc.price === 0 ? "Free" : formatINR(svc.price)}</span>
                   </div>
-                  <span className="text-sm font-bold text-slate-700 ml-3 shrink-0">{svc.price === 0 ? "Free" : formatINR(svc.price)}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="h-px bg-slate-100 mx-4" />
 
-          {/* Reviews */}
           <div className="px-4 py-4">
             <div className="flex items-center justify-between mb-2.5">
               <h2 className="font-bold text-base text-slate-900">Reviews</h2>
@@ -331,41 +343,30 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
             </div>
           </div>
 
-          {/* Bottom padding for CTA bar */}
           <div className="h-24" />
         </div>
 
-        {/* CTA bar */}
         <div className="shrink-0 bg-white border-t border-slate-100 px-4 py-3 flex gap-3">
           {hasQueue && (
-            <button
-              onClick={() => onJoinQueue(business)}
-              className="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform border border-slate-200"
-            >
+            <button onClick={() => onJoinQueue(business)} className="flex-1 h-12 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform border border-slate-200">
               <Users size={15} className="text-indigo-500" /> Join Queue
             </button>
           )}
           <button
             onClick={() => onBook(business)}
-            className={cn(
-              "h-12 bg-indigo-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform shadow-md shadow-indigo-200",
-              hasQueue ? "flex-1" : "w-full"
-            )}
+            className={cn("h-12 bg-indigo-500 text-white rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform shadow-md shadow-indigo-200", hasQueue ? "flex-1" : "w-full")}
           >
             Book Now
           </button>
         </div>
       </div>
 
-      {/* Lightbox (from main page photos) */}
       {lightboxIdx !== null && (
         <PhotoLightbox photos={photos} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
       )}
     </>
   );
 }
-
-/* ── helper components ─────────────────────────── */
 
 function Stars({ rating, size = 11 }: { rating: number; size?: number }) {
   return (

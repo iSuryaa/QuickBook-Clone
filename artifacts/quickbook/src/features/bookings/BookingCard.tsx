@@ -1,17 +1,18 @@
-import { Calendar, Clock, MapPin, ChevronRight, XCircle, Radio } from "lucide-react";
+import { Calendar, Clock, ChevronRight, XCircle, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Booking, BookingStatus } from "@/data/mock";
-import { BUSINESSES } from "@/data/mock";
+import type { ApiBooking } from "@/services/api";
+
+type BookingStatus = "upcoming" | "in-queue" | "completed" | "cancelled";
 
 const STATUS_CONFIG: Record<BookingStatus, { label: string; color: string; bg: string }> = {
-  upcoming:   { label: "Upcoming",   color: "text-blue-600",   bg: "bg-blue-50"    },
-  "in-queue": { label: "In Queue",   color: "text-amber-600",  bg: "bg-amber-50"   },
-  completed:  { label: "Completed",  color: "text-emerald-600",bg: "bg-emerald-50" },
-  cancelled:  { label: "Cancelled",  color: "text-slate-500",  bg: "bg-slate-100"  },
+  upcoming:   { label: "Upcoming",  color: "text-blue-600",    bg: "bg-blue-50"    },
+  "in-queue": { label: "In Queue",  color: "text-amber-600",   bg: "bg-amber-50"   },
+  completed:  { label: "Completed", color: "text-emerald-600", bg: "bg-emerald-50" },
+  cancelled:  { label: "Cancelled", color: "text-slate-500",   bg: "bg-slate-100"  },
 };
 
 interface BookingCardProps {
-  booking: Booking;
+  booking: ApiBooking;
   businessName: string;
   serviceName?: string;
   onViewDetails: () => void;
@@ -20,14 +21,13 @@ interface BookingCardProps {
 }
 
 export function BookingCard({ booking, businessName, serviceName, onViewDetails, onCancel, onViewQueue }: BookingCardProps) {
-  const business = BUSINESSES.find(b => b.id === booking.businessId);
-  const status = STATUS_CONFIG[booking.status];
+  const status = STATUS_CONFIG[booking.status] ?? STATUS_CONFIG.upcoming;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
       <div className="flex items-start gap-3 p-4">
-        {business && (
-          <img src={business.imageUrl} alt={business.name} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+        {booking.businessImageUrl && (
+          <img src={booking.businessImageUrl} alt={businessName} className="w-14 h-14 rounded-xl object-cover shrink-0" />
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
@@ -40,14 +40,16 @@ export function BookingCard({ booking, businessName, serviceName, onViewDetails,
             </span>
           </div>
           <div className="flex items-center gap-3 mt-2 text-xs text-slate-500 flex-wrap">
-            <span className="flex items-center gap-1"><Calendar size={11} />{new Date(booking.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}</span>
+            <span className="flex items-center gap-1">
+              <Calendar size={11} />{new Date(booking.date + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+            </span>
             <span className="flex items-center gap-1"><Clock size={11} />{booking.time}</span>
             <span className="font-mono text-indigo-500 font-bold">{booking.token}</span>
           </div>
         </div>
       </div>
 
-      {booking.status === "in-queue" && booking.queuePosition !== undefined && (
+      {booking.status === "in-queue" && booking.queuePosition != null && (
         <div className="mx-4 mb-4 bg-amber-50 rounded-xl p-3 border border-amber-100">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
@@ -57,7 +59,9 @@ export function BookingCard({ booking, businessName, serviceName, onViewDetails,
               </div>
               <p className="text-xs font-bold text-amber-700">Live Queue</p>
             </div>
-            <span className="text-xs text-amber-600 font-semibold">~{booking.estimatedWait} min wait</span>
+            {booking.estimatedWait != null && (
+              <span className="text-xs text-amber-600 font-semibold">~{booking.estimatedWait} min wait</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <div className="flex-1 h-2 bg-amber-100 rounded-full overflow-hidden">

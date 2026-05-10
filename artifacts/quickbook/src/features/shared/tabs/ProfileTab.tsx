@@ -1,9 +1,9 @@
-import { User, Bell, MapPin, CreditCard, Heart, HelpCircle, Settings, LogOut, ChevronRight, CalendarDays, Star, Shield } from "lucide-react";
+import { User, Bell, Heart, HelpCircle, Settings, LogOut, ChevronRight, Star, Shield } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
-import type { User as UserType } from "@/store/authStore";
+import type { ApiUser } from "@/services/api";
 
 interface ProfileTabProps {
-  user: UserType | null;
+  user: ApiUser | null;
   isLoggedIn: boolean;
   unreadCount: number;
   onGoHome: () => void;
@@ -28,7 +28,8 @@ export function ProfileTab({ user, isLoggedIn, unreadCount, onGoHome, onOpenNoti
     );
   }
 
-  const initials = user?.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const displayName = user?.name ?? "User";
+  const initials = displayName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
 
   return (
     <div className="pt-12 px-4 md:px-6 pb-8 animate-fade-up">
@@ -37,8 +38,8 @@ export function ProfileTab({ user, isLoggedIn, unreadCount, onGoHome, onOpenNoti
           <span className="text-xl font-black text-white">{initials}</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-black text-lg truncate">{user?.name}</p>
-          <p className="text-sm text-slate-500">+91 {user?.phone}</p>
+          <p className="font-black text-lg truncate">{displayName}</p>
+          <p className="text-sm text-slate-500">{user?.phone}</p>
           {user?.email && <p className="text-xs text-slate-400 truncate mt-0.5">{user.email}</p>}
         </div>
         <div className="bg-indigo-50 text-indigo-500 text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1">
@@ -48,27 +49,18 @@ export function ProfileTab({ user, isLoggedIn, unreadCount, onGoHome, onOpenNoti
 
       <MenuGroup label="Activity">
         <MenuItem icon={Bell} label="Notifications" badge={unreadCount} onClick={onOpenNotifications} />
-        <MenuItem icon={CalendarDays} label="Booking history" onClick={() => {}} />
         <MenuItem icon={Heart} label="Favourites" onClick={onOpenFavourites} />
       </MenuGroup>
 
       <MenuGroup label="Account">
-        <MenuItem icon={MapPin} label="Saved addresses" onClick={() => {}} />
-        <MenuItem icon={CreditCard} label="Payment methods" onClick={() => {}} />
-        <MenuItem icon={Shield} label="Privacy & security" onClick={() => {}} />
-      </MenuGroup>
-
-      <MenuGroup label="More">
-        <MenuItem icon={HelpCircle} label="Help & FAQ" onClick={() => {}} />
+        <MenuItem icon={Shield} label="Privacy & Security" onClick={() => {}} />
         <MenuItem icon={Settings} label="Settings" onClick={() => {}} />
+        <MenuItem icon={HelpCircle} label="Help & Support" onClick={() => {}} />
       </MenuGroup>
 
-      <button onClick={onLogout} className="w-full mt-2 flex items-center gap-3 px-4 py-4 text-red-500 font-bold text-sm rounded-2xl hover:bg-red-50 transition-colors active:scale-[0.99] transition-transform">
-        <LogOut size={18} />
-        Sign out
-      </button>
-
-      <p className="text-center text-xs text-slate-300 mt-6">QuickBook v1.0.0</p>
+      <MenuGroup label="">
+        <MenuItem icon={LogOut} label="Sign out" danger onClick={onLogout} />
+      </MenuGroup>
     </div>
   );
 }
@@ -76,25 +68,23 @@ export function ProfileTab({ user, isLoggedIn, unreadCount, onGoHome, onOpenNoti
 function MenuGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="mb-5">
-      <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2 px-1">{label}</p>
-      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden divide-y divide-slate-50 shadow-sm">
+      {label && <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2 px-1">{label}</p>}
+      <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden divide-y divide-slate-50">
         {children}
       </div>
     </div>
   );
 }
 
-function MenuItem({ icon: Icon, label, badge, onClick }: { icon: typeof User; label: string; badge?: number; onClick: () => void }) {
+function MenuItem({ icon: Icon, label, badge, danger, onClick }: { icon: React.ComponentType<{ size?: number; className?: string }>; label: string; badge?: number; danger?: boolean; onClick: () => void }) {
   return (
-    <button onClick={onClick} className="w-full flex items-center gap-3 px-4 py-4 text-left hover:bg-slate-50 transition-colors active:scale-[0.99] group">
-      <Icon size={18} className="text-slate-400 shrink-0 group-hover:text-indigo-400 transition-colors" />
-      <span className="flex-1 text-sm font-semibold">{label}</span>
+    <button onClick={onClick} className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 transition-colors active:bg-slate-100">
+      <Icon size={18} className={danger ? "text-red-400" : "text-slate-400"} />
+      <span className={`flex-1 text-sm font-semibold ${danger ? "text-red-500" : "text-slate-700"}`}>{label}</span>
       {badge != null && badge > 0 && (
-        <span className="min-w-[20px] h-5 bg-indigo-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-1.5 mr-1">
-          {badge}
-        </span>
+        <span className="bg-indigo-500 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{badge}</span>
       )}
-      <ChevronRight size={15} className="text-slate-300 shrink-0" />
+      {!danger && <ChevronRight size={15} className="text-slate-300" />}
     </button>
   );
 }

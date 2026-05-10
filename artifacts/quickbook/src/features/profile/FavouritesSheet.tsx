@@ -1,7 +1,8 @@
 import { Heart, X } from "lucide-react";
-import { BUSINESSES } from "@/data/mock";
+import { useBusinesses } from "@/hooks/useBusinesses";
 import { BusinessCard } from "@/features/businesses/BusinessCard";
 import { EmptyState } from "@/components/ui/EmptyState";
+import type { ApiBusiness } from "@/services/api";
 
 interface FavouritesSheetProps {
   favIds: string[];
@@ -11,7 +12,8 @@ interface FavouritesSheetProps {
 }
 
 export function FavouritesSheet({ favIds, onClose, onViewBusiness, onToggleFavorite }: FavouritesSheetProps) {
-  const favBusinesses = BUSINESSES.filter(b => favIds.includes(b.id));
+  const { data } = useBusinesses({});
+  const favBusinesses = (data?.businesses ?? []).filter((b: ApiBusiness) => favIds.includes(b.id));
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 animate-fade-in" onClick={onClose}>
@@ -26,15 +28,8 @@ export function FavouritesSheet({ favIds, onClose, onViewBusiness, onToggleFavor
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4 pb-safe">
           {favBusinesses.length === 0 ? (
             <EmptyState icon={Heart} title="No favourites yet" description="Tap the heart icon on any business to save it here." />
-          ) : favBusinesses.map(b => (
-            <BusinessCard
-              key={b.id}
-              business={b}
-              isFavorite
-              onToggleFavorite={onToggleFavorite}
-              onClick={onViewBusiness}
-              variant="compact"
-            />
+          ) : favBusinesses.map((b: ApiBusiness) => (
+            <BusinessCard key={b.id} business={b} isFavorite onToggleFavorite={onToggleFavorite} onClick={onViewBusiness} variant="compact" />
           ))}
         </div>
       </div>
