@@ -177,6 +177,7 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
                 ))}
               </div>
               {otpError && <p className="text-red-500 text-xs -mt-2">{otpError}</p>}
+              <p className="text-xs text-slate-400 -mt-2">Demo app — use <strong className="text-slate-600">123456</strong></p>
               <button type="submit" disabled={loading} className="h-14 bg-indigo-500 text-white rounded-2xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60 active:scale-[0.98] transition-all shadow-md shadow-indigo-200">
                 {loading ? <LoadingDots /> : "Verify OTP"}
               </button>

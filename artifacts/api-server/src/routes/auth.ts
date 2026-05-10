@@ -17,7 +17,7 @@ router.post("/auth/send-otp", async (req, res) => {
   if (!parsed.success) { res.status(400).json({ error: "Invalid phone number" }); return; }
   const { phone } = parsed.data;
 
-  const code = process.env.NODE_ENV === "development" ? "123456" : generateOtp();
+  const code = "123456"; // fixed demo code — no real SMS service
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
   const otpId = generateId("otp");
 
