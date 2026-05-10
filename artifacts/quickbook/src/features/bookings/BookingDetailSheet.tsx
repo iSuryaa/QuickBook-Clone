@@ -108,6 +108,15 @@ export function BookingDetailSheet({ booking, businessName, businessAddress, onC
               <XCircle size={15} /> Cancel Booking
             </button>
           )}
+
+          <div className="flex justify-center pt-1">
+            <a
+              href={`mailto:support@quickbook.com?subject=Booking%20Issue%2C%20Token%3A%20${booking.token}`}
+              className="text-xs text-slate-400 underline hover:text-indigo-500 transition-colors"
+            >
+              Report an issue
+            </a>
+          </div>
         </div>
       </div>
     </div>

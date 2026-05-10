@@ -1,0 +1,50 @@
+# QuickBook Customer App — Padding Fixes, Refactor, and Information Surfacing
+
+**Repo:** iSuryaa/QuickBook-Clone
+
+## Part 1 — Padding & Spacing Fixes
+
+1. **HOME TAB:** Change outer wrapper padding from `pb-2` to `pb-28`.
+2. **EXPLORE TAB:** Change grid container from `pb-6` to `pb-28`.
+3. **BOOKINGS TAB:** Change grid container from `pb-6` to `pb-28`.
+4. **PROFILE TAB:** Change `pb-8` to `pb-28`. Change desktop padding from `md:px-6` to `md:px-8`.
+5. **HOME TAB top padding:** Reduce `pt-12` to `pt-5`.
+6. **BOOKING CARD:** Add `border-t border-slate-100` above the action buttons row.
+7. **BUSINESS CARD (compact variant):** Change from `p-3` to `p-4`.
+
+## Part 2 — Architecture Refactor
+
+8. **Extract modal/sheet rendering from `AppShell.tsx`:**
+   - Create `SheetManager.tsx`: receives `modal` state from `uiStore` and renders the correct sheet/modal (BusinessDetailSheet, BookingFlowSheet, etc.). It should handle mobile/desktop variants.
+   - Create `TabRouter.tsx`: maps `activeTab` from `uiStore` to HomeTab, ExploreTab, BookingsTab, ProfileTab.
+   - `AppShell.tsx` becomes a pure layout wrapper: sidebar + BottomNav + `<main><TabRouter /></main>` + `<SheetManager />`.
+
+9. **Booking flow full-screen on mobile:**
+   - In `BookingFlowSheet`, change mobile outer container from `items-end` to `fixed inset-0 z-50 bg-white flex flex-col`.
+   - Desktop: keep `md:flex md:items-center md:justify-center md:bg-black/60`.
+   - Inner container: `w-full h-full md:h-auto md:max-w-lg md:rounded-3xl md:max-h-[90vh] flex flex-col overflow-hidden`.
+
+## Part 3 — Information Surfacing (No new components needed)
+
+1. **BOOKING SUCCESS SCREEN (BookingFlowSheet, "success" step):**
+   - Show: business name, business address, service name, date + time, specialist name (if `staffId` exists, look up from business staff), persons count, seats (cinema: joined seat IDs), token number in large monospace text.
+   - Add "Add to Calendar" button that uses Web Calendar API (`data:text/calendar` link).
+
+2. **BOOKING CARD:** Add `staffName?: string` prop. Render below service name in `xs/slate-400`.
+
+3. **SERVICE SELECTION in BookingFlowSheet:** Change description from `line-clamp-1` to `line-clamp-2`.
+
+4. **TIME SLOT PICKER:** Use real API slots (via `useSlots` hook). Below each time text, show `spotsLeft` if ≤3, in amber, e.g., "3 left". If >3, show nothing.
+
+5. **BUSINESS CARD (both variants):** Show today’s closing time below meta row. Parse `hoursDetail` for today: "Closes HH:MM" if open, "Opens HH:MM" if closed. `xs/slate-500`.
+
+6. **QUEUE TRACKER SHEET:** Add business address below name with a MapPin icon, `xs/slate-400`. Add "Get Directions" link that opens Google Maps with encoded address.
+
+7. **BOOKING FLOW PAYMENT STEP:** Add italic text below platform fee row:  
+   `Free cancellation up to 2 hours before your appointment. Platform fee is non-refundable after booking.`  
+   Style: `xs/slate-400 italic`.
+
+## Technical Constraints
+- Keep existing TypeScript types, Tailwind v4, Plus Jakarta Sans font.
+- No backend changes for items 1-3, 5-7 on information surfacing.
+- Item 4 (time slot picker) must use existing `getSlots` API call; no new endpoint needed.

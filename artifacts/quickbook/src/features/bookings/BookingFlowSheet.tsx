@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { X, ChevronLeft, Calendar, Clock, CheckCircle2, Star, CreditCard, Ticket, PartyPopper, Armchair, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCreateBooking } from "@/hooks/useBookings";
+import { useCreateBooking, useSlots } from "@/hooks/useBookings";
 import { processPayment } from "@/services/payment";
 import type { ApiBusiness, ApiService, ApiStaff, ApiBooking } from "@/services/api";
 import { CinemaSeatSelector, getSeatPrice, SEAT_CATEGORIES } from "./CinemaSeatSelector";
@@ -76,10 +76,16 @@ export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, in
   const [confirmedToken, setConfirmedToken] = useState("");
   const [paymentError, setPaymentError] = useState("");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [waitlistResult, setWaitlistResult] = useState<{ position: number; time: string } | null>(null);
 
   const createBooking = useCreateBooking();
   const dates = useMemo(() => getDateOptions(), []);
   const timeSlots = useMemo(() => generateTimeSlots(9, 21, 30), []);
+  const { data: slotsData, isLoading: slotsLoading } = useSlots(business.id, selectedDate);
+  const apiSlots = slotsData?.slots ?? [];
+  const displaySlots = apiSlots.length > 0
+    ? apiSlots
+    : timeSlots.map(t => ({ time: t, available: true, spotsLeft: 10 }));
 
   const stepIdx = stepOrder.indexOf(step);
   const progressSteps = stepOrder.filter(s => s !== "success");
@@ -123,6 +129,25 @@ export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, in
       setPaymentError(e?.message ?? "Booking failed. Please try again.");
     } finally {
       setIsProcessingPayment(false);
+    }
+  }
+
+  async function handleJoinWaitlist(time: string) {
+    if (!selectedDate) return;
+    try {
+      const result = await createBooking.mutateAsync({
+        businessId: business.id,
+        serviceId: selectedService?.id,
+        date: selectedDate,
+        time,
+        isQueueJoin: true,
+      });
+      setWaitlistResult({
+        position: result.booking.queuePosition ?? (business.queueCount + 1),
+        time,
+      });
+      onSuccess(result.booking);
+    } catch {
     }
   }
 
@@ -309,15 +334,61 @@ export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, in
             {selectedDate && (
               <section className="animate-fade-up">
                 <Label>Select Time</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {timeSlots.map(slot => (
-                    <button key={slot} onClick={() => setSelectedTime(slot)}
-                      className={cn("py-2.5 rounded-xl border text-xs font-bold transition-all",
-                        selectedTime === slot ? "bg-indigo-500 border-indigo-500 text-white" : "bg-white border-slate-100 text-slate-700")}>
-                      {slot}
-                    </button>
-                  ))}
-                </div>
+                {waitlistResult ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col gap-2 animate-fade-up">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-emerald-200 flex items-center justify-center shrink-0">
+                        <CheckCircle2 size={16} className="text-emerald-600" />
+                      </div>
+                      <p className="font-bold text-emerald-700 text-sm">You're #{waitlistResult.position} in line!</p>
+                    </div>
+                    <p className="text-xs text-emerald-600 leading-relaxed">
+                      You've joined the waitlist for <strong>{waitlistResult.time}</strong>. We'll notify you when a slot opens up — track your status in My Bookings.
+                    </p>
+                  </div>
+                ) : slotsLoading ? (
+                  <div className="grid grid-cols-4 gap-2">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <div key={i} className="h-9 rounded-xl skeleton-shine" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {displaySlots.map(slot => {
+                      const isSelected = selectedTime === slot.time;
+                      const isFull = !slot.available;
+                      const isLow = slot.available && slot.spotsLeft <= 3;
+                      return (
+                        <div key={slot.time} className="flex flex-col items-center gap-0.5">
+                          <button
+                            onClick={() => { if (!isFull) setSelectedTime(slot.time); }}
+                            disabled={isFull}
+                            className={cn(
+                              "w-full py-2.5 rounded-xl border text-xs font-bold transition-all leading-tight",
+                              isSelected ? "bg-indigo-500 border-indigo-500 text-white" :
+                              isFull ? "bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed" :
+                              "bg-white border-slate-100 text-slate-700"
+                            )}
+                          >
+                            {slot.time}
+                          </button>
+                          {isLow && !isSelected && (
+                            <span className="text-[10px] text-amber-500 font-semibold leading-none">{slot.spotsLeft} left</span>
+                          )}
+                          {isFull && (
+                            <button
+                              onClick={() => handleJoinWaitlist(slot.time)}
+                              disabled={createBooking.isPending}
+                              className="text-[10px] text-indigo-500 font-semibold hover:text-indigo-600 transition-colors disabled:opacity-50 leading-none"
+                            >
+                              Join waitlist
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
             )}
           </div>

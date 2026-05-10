@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, AlertCircle } from "lucide-react";
 import { BookingCard } from "@/features/bookings/BookingCard";
 import { BookingDetailSheet } from "@/features/bookings/BookingDetailSheet";
 import { CancelConfirmSheet } from "@/features/bookings/CancelConfirmSheet";
@@ -35,7 +35,7 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin, onResc
   const [cancelConfirmBooking, setCancelConfirmBooking] = useState<ApiBooking | null>(null);
   const [ratingBooking, setRatingBooking] = useState<ApiBooking | null>(null);
 
-  const { data, isLoading } = useBookings(isLoggedIn);
+  const { data, isLoading, isError, refetch } = useBookings(isLoggedIn);
   const cancelBooking = useCancelBooking();
 
   if (!isLoggedIn) {
@@ -107,9 +107,27 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin, onResc
         <div className="absolute right-0 top-0 bottom-1 w-12 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-28">
         {isLoading
           ? Array.from({ length: 2 }).map((_, i) => <BookingCardSkeleton key={i} />)
+          : isError
+            ? (
+              <div className="col-span-full min-h-[40vh] flex flex-col items-center justify-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+                  <AlertCircle size={26} className="text-red-400" />
+                </div>
+                <div className="text-center">
+                  <p className="font-bold text-slate-700 mb-1">Something went wrong</p>
+                  <p className="text-sm text-slate-400">We couldn't load your bookings.</p>
+                </div>
+                <button
+                  onClick={() => refetch()}
+                  className="px-5 py-2.5 bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-sm shadow-indigo-200 active:scale-95 transition-transform"
+                >
+                  Retry
+                </button>
+              </div>
+            )
           : filtered.length === 0
             ? (
               <div className="col-span-full min-h-[40vh] flex items-center justify-center">

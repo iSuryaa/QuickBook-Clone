@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type CreateBookingPayload } from "@/services/api";
 
+export function useSlots(businessId: string, date: string) {
+  return useQuery({
+    queryKey: ["slots", businessId, date],
+    queryFn: () => api.getSlots(businessId, date),
+    enabled: !!businessId && !!date,
+    staleTime: 60_000,
+  });
+}
+
 export function useBookings(enabled: boolean) {
   return useQuery({
     queryKey: ["bookings"],
