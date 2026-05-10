@@ -16,8 +16,8 @@ export function FavouritesSheet({ favIds, onClose, onViewBusiness, onToggleFavor
   const favBusinesses = (data?.businesses ?? []).filter((b: ApiBusiness) => favIds.includes(b.id));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 animate-fade-in" onClick={onClose}>
-      <div className="bg-slate-50 w-full max-w-[540px] rounded-t-3xl max-h-[85vh] flex flex-col animate-slide-up" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 animate-fade-in" onClick={onClose}>
+      <div className="bg-slate-50 w-full max-w-[540px] md:max-w-lg md:rounded-3xl rounded-t-3xl max-h-[85vh] flex flex-col animate-slide-up md:mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center px-5 pt-5 pb-4 bg-white border-b border-slate-100 shrink-0">
           <button onClick={onClose} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center mr-3">
             <X size={18} />

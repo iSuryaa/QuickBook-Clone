@@ -58,7 +58,7 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
     <div
       onClick={() => onClick(business.id)}
       role="button" tabIndex={0} onKeyDown={e => e.key === "Enter" && onClick(business.id)}
-      className="w-full bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 text-left transition-transform active:scale-[0.99] hover:shadow-md cursor-pointer"
+      className="w-full bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 text-left transition-transform active:scale-[0.99] hover:shadow-md cursor-pointer block"
     >
       <div className="relative h-48">
         <img src={business.imageUrl} alt={business.name} className="w-full h-full object-cover" loading="lazy" />

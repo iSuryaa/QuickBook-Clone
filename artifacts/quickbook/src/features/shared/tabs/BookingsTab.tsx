@@ -35,14 +35,16 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin }: Book
 
   if (!isLoggedIn) {
     return (
-      <div className="pt-12 px-4 md:px-6">
-        <h1 className="text-2xl font-black mb-6">My Bookings</h1>
-        <EmptyState
-          icon={CalendarDays}
-          title="Sign in to view bookings"
-          description="Your appointments and queue status will appear here."
-          action={{ label: "Sign in", onClick: onLogin }}
-        />
+      <div className="pt-12 px-4 md:px-8">
+        <h1 className="text-xl md:text-2xl font-black mb-6">My Bookings</h1>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <EmptyState
+            icon={CalendarDays}
+            title="Sign in to view bookings"
+            description="Your appointments and queue status will appear here."
+            action={{ label: "Sign in", onClick: onLogin }}
+          />
+        </div>
       </div>
     );
   }
@@ -60,16 +62,16 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin }: Book
   };
 
   return (
-    <div className="pt-12 px-4 md:px-6">
-      <h1 className="text-2xl font-black mb-4">My Bookings</h1>
+    <div className="pt-12 px-4 md:px-8">
+      <h1 className="text-xl md:text-2xl font-black mb-4">My Bookings</h1>
 
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-5">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-5 -mx-4 md:-mx-8 px-4 md:px-8">
         {TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setActiveFilter(id)}
             className={cn(
-              "px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap border transition-all active:scale-95",
+              "px-3 py-1.5 md:px-4 md:py-2 rounded-full text-sm font-semibold whitespace-nowrap border transition-all active:scale-95",
               activeFilter === id ? "bg-indigo-500 text-white border-indigo-500 shadow-sm shadow-indigo-200" : "bg-white text-slate-600 border-slate-200"
             )}
           >
@@ -78,16 +80,20 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin }: Book
         ))}
       </div>
 
-      <div className="flex flex-col gap-4 pb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6">
         {isLoading
           ? Array.from({ length: 2 }).map((_, i) => <BookingCardSkeleton key={i} />)
           : filtered.length === 0
-            ? <EmptyState
-                icon={CalendarDays}
-                title="No bookings here"
-                description="Your bookings will appear once you schedule an appointment."
-                action={{ label: "Explore businesses", onClick: onGoHome }}
-              />
+            ? (
+              <div className="col-span-full min-h-[40vh] flex items-center justify-center">
+                <EmptyState
+                  icon={CalendarDays}
+                  title="No bookings here"
+                  description="Your bookings will appear once you schedule an appointment."
+                  action={{ label: "Explore businesses", onClick: onGoHome }}
+                />
+              </div>
+            )
             : filtered.map((b: ApiBooking, i: number) => (
                 <div key={b.id} className="animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
                   <BookingCard

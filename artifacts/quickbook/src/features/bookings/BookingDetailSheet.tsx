@@ -22,8 +22,8 @@ export function BookingDetailSheet({ booking, businessName, businessAddress, onC
   const status = STATUS_CONFIG[booking.status] ?? STATUS_CONFIG.upcoming;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 animate-fade-in" onClick={onClose}>
-      <div className="bg-white w-full max-w-[540px] rounded-t-3xl max-h-[90vh] overflow-y-auto animate-slide-up pb-safe" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 animate-fade-in" onClick={onClose}>
+      <div className="bg-white w-full max-w-[540px] md:max-w-md md:rounded-3xl rounded-t-3xl max-h-[90vh] overflow-y-auto animate-slide-up pb-safe md:mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center px-5 pt-5 pb-4 border-b border-slate-100">
           <button onClick={onClose} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center mr-3">
             <X size={18} />

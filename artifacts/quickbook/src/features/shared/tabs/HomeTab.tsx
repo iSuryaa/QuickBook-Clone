@@ -42,13 +42,13 @@ export function HomeTab({ onGoExplore, searchQuery, onSearchChange, onViewBusine
   }, [isLoggedIn, userName]);
 
   return (
-    <div className="px-4 pt-12 pb-2 md:px-6">
+    <div className="px-4 md:px-8 pt-12 pb-2">
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="text-xs text-slate-500 flex items-center gap-1">
             <MapPin size={11} className="text-indigo-400" /> Nearby
           </p>
-          <h1 className="text-2xl font-black mt-0.5">{greeting}</h1>
+          <h1 className="text-xl md:text-2xl font-black mt-0.5">{greeting}</h1>
         </div>
         <button
           onClick={onOpenNotifications}
@@ -62,13 +62,13 @@ export function HomeTab({ onGoExplore, searchQuery, onSearchChange, onViewBusine
         value={searchQuery}
         onChange={v => { onSearchChange(v); if (v) onGoExplore(); }}
         placeholder="Search hospitals, salons, restaurants…"
-        className="mb-6"
+        className="mb-6 w-full max-w-md md:max-w-xl"
       />
 
       {/* Categories */}
       <section className="mb-7">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-bold text-base">Categories</h2>
+          <h2 className="font-bold text-sm md:text-base">Categories</h2>
           <button onClick={() => onGoExplore()} className="text-xs text-indigo-500 font-semibold flex items-center gap-0.5">
             All <ChevronRight size={13} />
           </button>
@@ -96,7 +96,7 @@ export function HomeTab({ onGoExplore, searchQuery, onSearchChange, onViewBusine
       {/* Featured */}
       <section className="mb-7">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-bold text-base">Featured for you</h2>
+          <h2 className="font-bold text-sm md:text-base">Featured for you</h2>
           <button onClick={() => onGoExplore()} className="text-xs text-indigo-500 font-semibold flex items-center gap-0.5">
             See all <ChevronRight size={13} />
           </button>
@@ -116,17 +116,17 @@ export function HomeTab({ onGoExplore, searchQuery, onSearchChange, onViewBusine
       {/* Popular */}
       <section className="mb-7">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-bold text-base">Popular near you</h2>
+          <h2 className="font-bold text-sm md:text-base">Popular near you</h2>
           <button onClick={() => onGoExplore()} className="text-xs text-indigo-500 font-semibold flex items-center gap-0.5">
             See all <ChevronRight size={13} />
           </button>
         </div>
-        <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {isLoading
             ? Array.from({ length: 3 }).map((_, i) => <BusinessCardSkeleton key={i} />)
             : popular.map((b: ApiBusiness, i: number) => (
                 <div key={b.id} className="animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
-                  <BusinessCard business={b} isFavorite={favIds.includes(b.id)} onToggleFavorite={onToggleFavorite} onClick={onViewBusiness} variant="compact" />
+                  <BusinessCard business={b} isFavorite={favIds.includes(b.id)} onToggleFavorite={onToggleFavorite} onClick={onViewBusiness} />
                 </div>
               ))
           }

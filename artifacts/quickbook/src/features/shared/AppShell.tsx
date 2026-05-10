@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BottomNav, type TabName } from "@/components/ui/BottomNav";
+import { DesktopSidebar } from "./DesktopSidebar";
 import { HomeTab } from "./tabs/HomeTab";
 import { ExploreTab } from "./tabs/ExploreTab";
 import { BookingsTab } from "./tabs/BookingsTab";
@@ -88,57 +89,69 @@ export function AppShell() {
   }, [qc]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="pb-20 animate-fade-up">
-        {activeTab === "home" && (
-          <HomeTab
-            onGoExplore={goToExplore}
-            searchQuery={searchQuery}
-            onSearchChange={q => { setSearchQuery(q); if (q) setActiveTab("explore"); }}
-            onViewBusiness={openBusinessDetail}
-            onOpenNotifications={() => {
-              if (!auth.isLoggedIn) { setModal({ type: "login" }); return; }
-              setModal({ type: "notifications" });
-            }}
-            isLoggedIn={auth.isLoggedIn}
-            userName={auth.user?.name ?? undefined}
-            favIds={favIds}
-            onToggleFavorite={toggleFav}
-          />
-        )}
-        {activeTab === "explore" && (
-          <ExploreTab
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            initialCategory={exploreCategoryFilter}
-            onViewBusiness={openBusinessDetail}
-            favIds={favIds}
-            onToggleFavorite={toggleFav}
-          />
-        )}
-        {activeTab === "bookings" && (
-          <BookingsTab
-            isLoggedIn={auth.isLoggedIn}
-            onGoHome={() => setActiveTab("home")}
-            onViewQueue={openQueueTracker}
-            onLogin={() => setModal({ type: "login" })}
-          />
-        )}
-        {activeTab === "profile" && (
-          <ProfileTab
-            user={auth.user ?? null}
-            isLoggedIn={auth.isLoggedIn}
-            unreadCount={0}
-            onGoHome={() => setActiveTab("home")}
-            onOpenNotifications={() => setModal({ type: "notifications" })}
-            onOpenFavourites={() => setModal({ type: "favourites" })}
-            onOpenLogin={() => setModal({ type: "login" })}
-            onLogout={auth.logout}
-          />
-        )}
-      </div>
+    <div className="flex justify-center min-h-screen bg-slate-50">
+      <DesktopSidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        isLoggedIn={auth.isLoggedIn}
+        userName={auth.user?.name ?? undefined}
+        onLogout={auth.logout}
+      />
 
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} bookingCount={0} />
+      <main className="w-full max-w-sm md:max-w-2xl lg:max-w-4xl xl:max-w-5xl pb-20 md:pb-8 flex-1 min-w-0">
+        <div className="animate-fade-up">
+          {activeTab === "home" && (
+            <HomeTab
+              onGoExplore={goToExplore}
+              searchQuery={searchQuery}
+              onSearchChange={q => { setSearchQuery(q); if (q) setActiveTab("explore"); }}
+              onViewBusiness={openBusinessDetail}
+              onOpenNotifications={() => {
+                if (!auth.isLoggedIn) { setModal({ type: "login" }); return; }
+                setModal({ type: "notifications" });
+              }}
+              isLoggedIn={auth.isLoggedIn}
+              userName={auth.user?.name ?? undefined}
+              favIds={favIds}
+              onToggleFavorite={toggleFav}
+            />
+          )}
+          {activeTab === "explore" && (
+            <ExploreTab
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              initialCategory={exploreCategoryFilter}
+              onViewBusiness={openBusinessDetail}
+              favIds={favIds}
+              onToggleFavorite={toggleFav}
+            />
+          )}
+          {activeTab === "bookings" && (
+            <BookingsTab
+              isLoggedIn={auth.isLoggedIn}
+              onGoHome={() => setActiveTab("home")}
+              onViewQueue={openQueueTracker}
+              onLogin={() => setModal({ type: "login" })}
+            />
+          )}
+          {activeTab === "profile" && (
+            <ProfileTab
+              user={auth.user ?? null}
+              isLoggedIn={auth.isLoggedIn}
+              unreadCount={0}
+              onGoHome={() => setActiveTab("home")}
+              onOpenNotifications={() => setModal({ type: "notifications" })}
+              onOpenFavourites={() => setModal({ type: "favourites" })}
+              onOpenLogin={() => setModal({ type: "login" })}
+              onLogout={auth.logout}
+            />
+          )}
+        </div>
+      </main>
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex justify-center">
+        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} bookingCount={0} />
+      </nav>
 
       {modal?.type === "login" && (
         <LoginScreen

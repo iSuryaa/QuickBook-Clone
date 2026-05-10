@@ -15,7 +15,7 @@ paths = [ "/" ]
 localPort = 21933
 
 [services.development]
-run = "pnpm --filter @workspace/quickbook run dev"
+run = "PORT=21933 BASE_PATH=/ pnpm --filter @workspace/quickbook run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/quickbook", "run", "build" ]

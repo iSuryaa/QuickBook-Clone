@@ -107,8 +107,11 @@ export function LoginScreen({ onBack, onSuccess }: LoginScreenProps) {
   const loading = sendOtp.isPending || verifyOtp.isPending || updateProfile.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 animate-fade-in" onClick={onBack}>
-      <div className="bg-white w-full max-w-[540px] rounded-t-3xl max-h-[90vh] overflow-y-auto animate-slide-up" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 animate-fade-in" onClick={onBack}>
+      <div
+        className="bg-white w-full max-w-[540px] md:max-w-md rounded-t-3xl md:rounded-3xl max-h-[90vh] overflow-y-auto animate-slide-up md:mx-4"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="sticky top-0 bg-white flex items-center gap-3 px-5 pt-5 pb-4 border-b border-slate-100 z-10">
           <button onClick={step === "phone" ? onBack : () => {
             if (step === "otp") { setStep("phone"); setOtp(["","","","","",""]); }

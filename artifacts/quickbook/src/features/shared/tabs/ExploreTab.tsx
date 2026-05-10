@@ -58,11 +58,11 @@ export function ExploreTab({ searchQuery, onSearchChange, initialCategory, onVie
     (filters.priceLevels.length < 4 ? 1 : 0);
 
   return (
-    <div className="pt-12 px-4 md:px-6">
-      <h1 className="text-2xl font-black mb-4">Explore</h1>
+    <div className="pt-12 px-4 md:px-8">
+      <h1 className="text-xl md:text-2xl font-black mb-4">Explore</h1>
 
       <div className="flex gap-2 mb-4">
-        <SearchBar value={searchQuery} onChange={onSearchChange} placeholder="Search by name or area" className="flex-1" />
+        <SearchBar value={searchQuery} onChange={onSearchChange} placeholder="Search by name or area" className="flex-1 max-w-md md:max-w-xl" />
         <button
           onClick={() => setShowFilters(true)}
           className={cn("w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 relative transition-all active:scale-95",
@@ -77,13 +77,15 @@ export function ExploreTab({ searchQuery, onSearchChange, initialCategory, onVie
         </button>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 -mx-4 px-4">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-3 -mx-4 md:-mx-8 px-4 md:px-8">
         {CATEGORY_TABS.map(({ id, label }) => (
           <button
             key={id}
             onClick={() => setActiveCategory(id)}
-            className={cn("px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap border shrink-0 transition-all active:scale-95",
-              activeCategory === id ? "bg-indigo-500 text-white border-indigo-500 shadow-sm shadow-indigo-200" : "bg-white text-slate-600 border-slate-200")}
+            className={cn(
+              "px-3 py-1.5 md:px-4 md:py-2 rounded-full text-sm md:text-base font-semibold whitespace-nowrap border shrink-0 transition-all active:scale-95",
+              activeCategory === id ? "bg-indigo-500 text-white border-indigo-500 shadow-sm shadow-indigo-200" : "bg-white text-slate-600 border-slate-200"
+            )}
           >
             {label}
           </button>
@@ -98,11 +100,15 @@ export function ExploreTab({ searchQuery, onSearchChange, initialCategory, onVie
         </div>
       )}
 
-      <div className="flex flex-col gap-3 pb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => <BusinessCardSkeleton key={i} />)
           : filtered.length === 0
-            ? <EmptyState icon={Search} title="No results" description="Try a different category or search term." />
+            ? (
+              <div className="col-span-full min-h-[50vh] flex items-center justify-center">
+                <EmptyState icon={Search} title="No results" description="Try a different category or search term." />
+              </div>
+            )
             : filtered.map((b: ApiBusiness, i: number) => (
                 <div key={b.id} className="animate-fade-up" style={{ animationDelay: `${i * 40}ms` }}>
                   <BusinessCard business={b} isFavorite={favIds.includes(b.id)} onToggleFavorite={onToggleFavorite} onClick={onViewBusiness} />
