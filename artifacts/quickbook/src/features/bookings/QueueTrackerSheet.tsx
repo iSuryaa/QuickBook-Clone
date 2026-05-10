@@ -27,7 +27,8 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
   const progress = Math.max(8, ((total - position) / total) * 100);
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col animate-slide-up overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 animate-fade-in" onClick={onClose}>
+    <div className="w-full md:max-w-lg bg-white md:rounded-3xl max-h-[94vh] flex flex-col animate-slide-up overflow-hidden md:mx-4" onClick={e => e.stopPropagation()}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-white shrink-0">
         <button onClick={onClose} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
@@ -159,6 +160,7 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
 
         <div className="h-2" />
       </div>
+    </div>
     </div>
   );
 }

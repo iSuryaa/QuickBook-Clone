@@ -47,10 +47,12 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-2 border-indigo-200 border-t-indigo-500 animate-spin" />
-          <p className="text-sm text-slate-400">Loading…</p>
+      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 animate-fade-in">
+        <div className="w-full md:max-w-2xl bg-white md:rounded-3xl max-h-[94vh] flex items-center justify-center md:mx-4 py-20">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 rounded-full border-2 border-indigo-200 border-t-indigo-500 animate-spin" />
+            <p className="text-sm text-slate-400">Loading…</p>
+          </div>
         </div>
       </div>
     );
@@ -58,10 +60,12 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
 
   if (isError || !business) {
     return (
-      <div className="fixed inset-0 z-50 bg-white flex items-center justify-center">
-        <div className="text-center px-6">
-          <p className="font-bold text-slate-700 mb-2">Failed to load business</p>
-          <button onClick={onClose} className="text-indigo-500 font-semibold text-sm">Go back</button>
+      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 animate-fade-in">
+        <div className="w-full md:max-w-2xl bg-white md:rounded-3xl max-h-[94vh] flex items-center justify-center md:mx-4 py-20">
+          <div className="text-center px-6">
+            <p className="font-bold text-slate-700 mb-2">Failed to load business</p>
+            <button onClick={onClose} className="text-indigo-500 font-semibold text-sm">Go back</button>
+          </div>
         </div>
       </div>
     );
@@ -126,7 +130,8 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-white flex flex-col animate-slide-up overflow-hidden">
+      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 animate-fade-in" onClick={onClose}>
+      <div className="w-full md:max-w-2xl bg-white md:rounded-3xl max-h-[94vh] flex flex-col animate-slide-up overflow-hidden md:mx-4" onClick={e => e.stopPropagation()}>
         <div className="relative shrink-0" style={{ height: "48vw", maxHeight: 220, minHeight: 160 }}>
           <img src={photos[photoIdx]} alt={business.name} className="w-full h-full object-cover" />
           {photos.length > 1 && (
@@ -360,6 +365,7 @@ export function BusinessDetailSheet({ businessId, onClose, onBook, onJoinQueue, 
           </button>
         </div>
       </div>
+      </div>
 
       {lightboxIdx !== null && (
         <PhotoLightbox photos={photos} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
@@ -417,14 +423,16 @@ function ReviewCard({ review }: { review: { id: string; name: string; rating: nu
 
 function SubPageWrapper({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col animate-slide-up">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-white shrink-0">
-        <button onClick={onClose} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-          <ArrowLeft size={18} />
-        </button>
-        <h2 className="font-bold text-base flex-1">{title}</h2>
+    <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-black/60 animate-fade-in">
+      <div className="w-full md:max-w-2xl bg-white md:rounded-3xl max-h-[94vh] flex flex-col animate-slide-up overflow-hidden md:mx-4">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-white shrink-0">
+          <button onClick={onClose} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+            <ArrowLeft size={18} />
+          </button>
+          <h2 className="font-bold text-base flex-1">{title}</h2>
+        </div>
+        <div className="flex-1 overflow-y-auto no-scrollbar pb-safe">{children}</div>
       </div>
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-safe">{children}</div>
     </div>
   );
 }

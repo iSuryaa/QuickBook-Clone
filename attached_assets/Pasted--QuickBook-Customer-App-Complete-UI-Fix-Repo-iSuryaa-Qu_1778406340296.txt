@@ -1,0 +1,212 @@
+# QuickBook Customer App — Complete UI Fix
+
+**Repo:** iSuryaa/QuickBook-Clone  
+**Live URL:** https://quick-book-clone--surya25sp.replit.app/  
+**Problem:** Desktop/tablet view is broken — no responsive container, no sidebar, bottom nav always visible, cards truncated. Need to fix all UI issues to match the existing sidebar mockup.
+
+---
+
+## 1. Add Responsive Container & Desktop Sidebar in AppShell.tsx
+
+File: `artifacts/quickbook/src/features/shared/AppShell.tsx`
+
+Replace the current return statement (the outer `<div>` wrapper) with this structure:
+
+```tsx
+return (
+  <div className="flex min-h-screen bg-slate-50">
+    {/* DESKTOP SIDEBAR — visible md and up */}
+    <aside className="hidden md:flex md:flex-col md:w-64 lg:w-72 bg-white border-r border-slate-200 h-screen sticky top-0">
+      <div className="p-6">
+        <h1 className="text-2xl font-bold text-indigo-600">QuickBook</h1>
+        <p className="text-sm text-slate-400 mt-1">Skip the queue</p>
+      </div>
+      <nav className="flex-1 px-4">
+        {[
+          { id: "home", label: "Home", icon: Home },
+          { id: "explore", label: "Explore", icon: Compass },
+          { id: "bookings", label: "Bookings", icon: CalendarDays },
+          { id: "profile", label: "Profile", icon: User },
+        ].map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            onClick={() => { setActiveTab(id); setModal(null); }}
+            className={`flex items-center gap-3 w-full px-3 py-3 rounded-xl text-left transition-colors ${
+              activeTab === id
+                ? "bg-indigo-50 text-indigo-600 font-semibold"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <Icon className="w-5 h-5" />
+            <span className="text-sm">{label}</span>
+            {id === "bookings" && bookingCount > 0 && (
+              <span className="ml-auto bg-indigo-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {bookingCount}
+              </span>
+            )}
+          </button>
+        ))}
+      </nav>
+      <div className="p-4 border-t border-slate-100">
+        {auth.isLoggedIn ? (
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
+              {auth.user?.name?.[0] ?? "U"}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{auth.user?.name ?? "User"}</p>
+              <button onClick={auth.logout} className="text-xs text-slate-400 hover:text-red-500">
+                Sign out
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setModal({ type: "login" })}
+            className="w-full py-2.5 bg-indigo-500 text-white text-sm font-semibold rounded-xl hover:bg-indigo-600 transition-colors"
+          >
+            Sign in
+          </button>
+        )}
+      </div>
+    </aside>
+
+    {/* MAIN CONTENT — responsive max-width */}
+    <main className="flex-1 max-w-screen-xl mx-auto px-4 md:px-8 pb-20 md:pb-8 overflow-y-auto">
+      {activeTab === "home" && (
+        <HomeTab ... />
+      )}
+      {activeTab === "explore" && (
+        <ExploreTab ... />
+      )}
+      {activeTab === "bookings" && (
+        <BookingsTab ... />
+      )}
+      {activeTab === "profile" && (
+        <ProfileTab ... />
+      )}
+    </main>
+
+    {/* BOTTOM NAV — mobile only */}
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50">
+      <BottomNav
+        activeTab={activeTab as TabName}
+        onTabChange={(tab) => { setActiveTab(tab); setModal(null); }}
+        bookingCount={bookingCount}
+      />
+    </nav>
+
+    {/* ... existing modals remain unchanged ... */}
+  </div>
+);
+Important: Import Home, Compass, CalendarDays, User from lucide-react at the top of the file.
+
+2. Fix Business Cards to Stop Text Truncation
+File: artifacts/quickbook/src/features/businesses/BusinessCard.tsx
+
+Remove any fixed width property from the card wrapper.
+
+Use w-full instead.
+
+Ensure the card's internal text containers use min-w-0 and truncate only where appropriate.
+
+If there is a variant prop that changes card layout, ensure the "default" variant is used on desktop and "compact" on mobile.
+
+3. Apply Responsive Grid to HomeTab & ExploreTab
+File: artifacts/quickbook/src/features/shared/tabs/HomeTab.tsx
+
+Find the sections that render business cards and wrap them in responsive grids:
+
+tsx
+{/* Featured for you */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {featured.map((b) => (
+    <BusinessCard key={b.id} business={b} variant="default" />
+  ))}
+</div>
+
+{/* Popular near you */}
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {popular.map((b) => (
+    <BusinessCard key={b.id} business={b} variant="default" />
+  ))}
+</div>
+File: artifacts/quickbook/src/features/shared/tabs/ExploreTab.tsx — Apply the same grid pattern.
+
+4. Fix Category Buttons — Make "All" a Pill Like Others
+File: artifacts/quickbook/src/features/shared/tabs/HomeTab.tsx
+
+Replace the "All >" text-link with a proper pill button:
+
+tsx
+<div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+  <button
+    onClick={() => onGoExplore()}
+    className="px-4 py-2 rounded-full text-sm font-medium bg-indigo-500 text-white whitespace-nowrap shrink-0"
+  >
+    All
+  </button>
+  {CATEGORIES.map(({ id, name, icon: Icon, color }) => (
+    <button
+      key={id}
+      onClick={() => onGoExplore(id)}
+      className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:border-slate-300 whitespace-nowrap shrink-0 active:scale-95 transition-transform"
+    >
+      <Icon className="w-4 h-4" style={{ color }} />
+      {name}
+    </button>
+  ))}
+</div>
+5. Fix Search Bar Width Responsiveness
+File: artifacts/quickbook/src/components/ui/SearchBar.tsx
+
+Ensure the search input has a max-width that expands on desktop:
+
+tsx
+<input
+  className="w-full max-w-md md:max-w-xl h-10 rounded-xl border border-slate-200 bg-slate-50 px-4 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 transition-shadow"
+  ...
+/>
+6. Ensure Modals Are Centered Dialogs on Desktop
+File: artifacts/quickbook/src/features/shared/AppShell.tsx
+
+For the BusinessDetailSheet, BookingFlowSheet, and other sheet components, ensure they render as centered modals on md+ screens:
+
+Add this wrapper pattern around each modal in AppShell.tsx:
+
+tsx
+{modal?.type === "businessDetail" && (
+  <>
+    <div className="hidden md:block fixed inset-0 z-40 bg-black/40" onClick={closeModal} />
+    <div className="hidden md:block fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl">
+          <BusinessDetailSheet ... />
+        </div>
+      </div>
+    </div>
+    <div className="md:hidden">
+      <BusinessDetailSheet ... />
+    </div>
+  </>
+)}
+Apply the same pattern to BookingFlowSheet, QueueTrackerSheet, NotificationsPanel, FavouritesSheet, and LoginScreen.
+
+7. Testing Checklist After Implementation
+Mobile (375px): Bottom nav visible, single-column cards, full-screen sheets.
+
+Tablet (768px): Sidebar appears, 2-column card grid, centered dialogs.
+
+Desktop (1440px): Wider sidebar, 3-column card grid, content constrained by max-w-screen-xl.
+
+Sidebar navigation works: Clicking Home/Explore/Bookings/Profile changes the active tab.
+
+Sign in button appears when logged out; user avatar + sign out appears when logged in.
+
+Category pills are clickable and navigate to Explore with the selected filter.
+
+Search bar is usable and redirects to Explore.
+
+No text truncation on business cards at any breakpoint.
+
+All modals appear centered on desktop, full-screen on mobile.

@@ -67,19 +67,22 @@ export function HomeTab({ onGoExplore, searchQuery, onSearchChange, onViewBusine
 
       {/* Categories */}
       <section className="mb-7">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-bold text-sm md:text-base">Categories</h2>
-          <button onClick={() => onGoExplore()} className="text-xs text-indigo-500 font-semibold flex items-center gap-0.5">
-            All <ChevronRight size={13} />
+        <h2 className="font-bold text-sm md:text-base mb-3">Categories</h2>
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 -mx-4 md:-mx-8 px-4 md:px-8">
+          <button
+            onClick={() => onGoExplore()}
+            className="px-4 py-2 rounded-full text-sm font-semibold bg-indigo-500 text-white whitespace-nowrap shrink-0 active:scale-95 transition-transform"
+          >
+            All
           </button>
-        </div>
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
           {CATEGORIES.map(({ id, name, icon: Icon, color }) => (
-            <button key={id} onClick={() => onGoExplore(id)} className="flex flex-col items-center gap-2 shrink-0 active:scale-90 transition-transform">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${color}18` }}>
-                <Icon size={24} style={{ color }} />
-              </div>
-              <span className="text-xs font-semibold text-slate-600 text-center leading-tight max-w-[60px]">{name}</span>
+            <button
+              key={id}
+              onClick={() => onGoExplore(id)}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-white border border-slate-200 text-slate-700 hover:border-slate-300 whitespace-nowrap shrink-0 active:scale-95 transition-transform"
+            >
+              <Icon size={14} style={{ color }} />
+              {name}
             </button>
           ))}
         </div>
@@ -101,11 +104,11 @@ export function HomeTab({ onGoExplore, searchQuery, onSearchChange, onViewBusine
             See all <ChevronRight size={13} />
           </button>
         </div>
-        <div className="flex gap-4 overflow-x-auto no-scrollbar pb-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {isLoading
-            ? Array.from({ length: 3 }).map((_, i) => <div key={i} className="w-64 shrink-0"><BusinessCardSkeleton /></div>)
+            ? Array.from({ length: 3 }).map((_, i) => <BusinessCardSkeleton key={i} />)
             : featured.map((b: ApiBusiness, i: number) => (
-                <div key={b.id} className="w-72 shrink-0 animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
+                <div key={b.id} className="animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
                   <BusinessCard business={b} isFavorite={favIds.includes(b.id)} onToggleFavorite={onToggleFavorite} onClick={onViewBusiness} />
                 </div>
               ))
