@@ -1,14 +1,32 @@
+import { useState } from "react";
 import { Star, Clock, MapPin, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ApiBusiness } from "@/services/api";
 
 const CATEGORY_LABELS: Record<string, string> = {
   hospital: "Hospital", salon: "Salon & Spa", hotel: "Hotel",
-  gym: "Gym", restaurant: "Restaurant", entertainment: "Cinema", games: "Gaming",
+  gym: "Gym", restaurant: "Restaurant", entertainment: "Cinema",
+  games: "Gaming", pharmacy: "Pharmacy",
+};
+
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  hospital: "from-blue-400 to-blue-600",
+  salon: "from-pink-400 to-purple-500",
+  hotel: "from-teal-400 to-teal-600",
+  gym: "from-emerald-400 to-green-600",
+  restaurant: "from-orange-400 to-red-500",
+  entertainment: "from-purple-500 to-violet-700",
+  games: "from-cyan-400 to-blue-500",
+  pharmacy: "from-green-400 to-emerald-600",
+};
+
+const CATEGORY_ICONS: Record<string, string> = {
+  hospital: "🏥", salon: "💆", hotel: "🏨", gym: "💪",
+  restaurant: "🍽️", entertainment: "🎬", games: "🎮", pharmacy: "💊",
 };
 
 function formatPriceLevel(level: number) {
-  return "₹".repeat(level) + "₹".repeat(4 - level).replace(/₹/g, "·");
+  return "₹".repeat(level) + "·".repeat(4 - level);
 }
 
 interface BusinessCardProps {
@@ -19,6 +37,58 @@ interface BusinessCardProps {
   variant?: "default" | "compact";
 }
 
+function CardImage({ business, className }: { business: ApiBusiness; className?: string }) {
+  const [imgError, setImgError] = useState(false);
+  const gradient = CATEGORY_GRADIENTS[business.category] ?? "from-indigo-400 to-violet-500";
+  const icon = CATEGORY_ICONS[business.category] ?? "🏪";
+
+  if (imgError || !business.imageUrl) {
+    return (
+      <div className={cn(`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`, className)}>
+        <span className="text-5xl opacity-80">{icon}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn(`relative w-full h-full bg-gradient-to-br ${gradient}`, className)}>
+      <img
+        src={business.imageUrl}
+        alt={business.name}
+        className="w-full h-full object-cover"
+        loading="lazy"
+        onError={() => setImgError(true)}
+      />
+    </div>
+  );
+}
+
+function CompactImage({ business }: { business: ApiBusiness }) {
+  const [imgError, setImgError] = useState(false);
+  const gradient = CATEGORY_GRADIENTS[business.category] ?? "from-indigo-400 to-violet-500";
+  const icon = CATEGORY_ICONS[business.category] ?? "🏪";
+
+  if (imgError || !business.imageUrl) {
+    return (
+      <div className={cn(`w-16 h-16 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0`)}>
+        <span className="text-2xl">{icon}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn(`w-16 h-16 rounded-xl bg-gradient-to-br ${gradient} shrink-0 overflow-hidden`)}>
+      <img
+        src={business.imageUrl}
+        alt={business.name}
+        className="w-full h-full object-cover"
+        loading="lazy"
+        onError={() => setImgError(true)}
+      />
+    </div>
+  );
+}
+
 export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, variant = "default" }: BusinessCardProps) {
   if (variant === "compact") {
     return (
@@ -27,7 +97,7 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
         role="button" tabIndex={0} onKeyDown={e => e.key === "Enter" && onClick(business.id)}
         className="flex items-center gap-3 w-full bg-white rounded-2xl p-3 border border-slate-100 text-left active:scale-[0.98] transition-transform shadow-sm cursor-pointer"
       >
-        <img src={business.imageUrl} alt={business.name} className="w-16 h-16 rounded-xl object-cover shrink-0" />
+        <CompactImage business={business} />
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm truncate">{business.name}</p>
           <p className="text-xs text-slate-400 truncate mt-0.5">{CATEGORY_LABELS[business.category] ?? business.category}</p>
@@ -60,8 +130,8 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
       role="button" tabIndex={0} onKeyDown={e => e.key === "Enter" && onClick(business.id)}
       className="w-full bg-white rounded-2xl overflow-hidden shadow-sm border border-slate-100 text-left transition-transform active:scale-[0.99] hover:shadow-md cursor-pointer block"
     >
-      <div className="relative h-48">
-        <img src={business.imageUrl} alt={business.name} className="w-full h-full object-cover" loading="lazy" />
+      <div className="relative h-48 overflow-hidden">
+        <CardImage business={business} />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
         <button
           onClick={e => { e.stopPropagation(); onToggleFavorite(business.id); }}

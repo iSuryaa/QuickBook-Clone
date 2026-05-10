@@ -7,27 +7,33 @@ import { ExploreTab } from "./tabs/ExploreTab";
 import { BookingsTab } from "./tabs/BookingsTab";
 import { ProfileTab } from "./tabs/ProfileTab";
 import { BusinessDetailSheet } from "@/features/businesses/BusinessDetailSheet";
-import { BookingFlowSheet } from "@/features/bookings/BookingFlowSheet";
+import { BookingFlowSheet, type BookingFlowStep } from "@/features/bookings/BookingFlowSheet";
 import { QueueTrackerSheet } from "@/features/bookings/QueueTrackerSheet";
 import { NotificationsPanel } from "@/features/profile/NotificationsPanel";
 import { FavouritesSheet } from "@/features/profile/FavouritesSheet";
 import { LoginScreen } from "@/features/auth/LoginScreen";
+import { EditProfileSheet } from "@/features/profile/EditProfileSheet";
+import { CitySelector } from "@/features/shared/CitySelector";
 import { useAuthState } from "@/hooks/useAuth";
 import { useFavoritesStore } from "@/store/favoritesStore";
 import { useCreateBooking } from "@/hooks/useBookings";
 import { useBookings } from "@/hooks/useBookings";
+import { useCancelBooking } from "@/hooks/useBookings";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/Toast";
 import type { ApiBusiness, ApiService, ApiStaff, ApiBooking } from "@/services/api";
 
 type FullBusiness = ApiBusiness & { services: ApiService[]; staff: ApiStaff[] };
 
 type ModalState =
   | { type: "businessDetail"; businessId: string }
-  | { type: "bookingFlow"; business: FullBusiness }
+  | { type: "bookingFlow"; business: FullBusiness; initialStep?: BookingFlowStep; initialService?: ApiService }
   | { type: "queueTracker"; bookingId: string; businessName: string; businessAddress?: string; initialPosition?: number; totalInQueue?: number }
   | { type: "notifications" }
   | { type: "favourites" }
   | { type: "login"; afterLoginAction?: () => void }
+  | { type: "editProfile" }
+  | { type: "citySelector" }
   | null;
 
 const NAV_ITEMS: { id: TabName; label: string; icon: typeof Home }[] = [
@@ -44,7 +50,10 @@ export function AppShell() {
   const [searchQuery, setSearchQuery] = useState("");
   const [exploreCategoryFilter, setExploreCategoryFilter] = useState<string | undefined>();
   const [modal, setModal] = useState<ModalState>(null);
+  const [city, setCity] = useState("Mumbai");
+
   const createBooking = useCreateBooking();
+  const cancelBooking = useCancelBooking();
   const qc = useQueryClient();
 
   const { data: bookingsData } = useBookings(auth.isLoggedIn);
@@ -56,12 +65,12 @@ export function AppShell() {
     setModal({ type: "businessDetail", businessId: id });
   }, []);
 
-  const openBookingFlow = useCallback((business: FullBusiness) => {
+  const openBookingFlow = useCallback((business: FullBusiness, initialStep?: BookingFlowStep, initialService?: ApiService) => {
     if (!auth.isLoggedIn) {
-      setModal({ type: "login", afterLoginAction: () => setModal({ type: "bookingFlow", business }) });
+      setModal({ type: "login", afterLoginAction: () => setModal({ type: "bookingFlow", business, initialStep, initialService }) });
       return;
     }
-    setModal({ type: "bookingFlow", business });
+    setModal({ type: "bookingFlow", business, initialStep, initialService });
   }, [auth.isLoggedIn]);
 
   const openQueueTracker = useCallback((bookingId: string, businessName: string, businessAddress?: string, initialPosition?: number, totalInQueue?: number) => {
@@ -84,9 +93,38 @@ export function AppShell() {
       });
       openQueueTracker(result.booking.id, business.name, business.address, business.queueCount + 1, business.queueCount + 1);
     } catch {
-      // silently ignore
     }
   }, [auth.isLoggedIn, createBooking, openQueueTracker]);
+
+  const handleLeaveQueue = useCallback(async (bookingId: string) => {
+    try {
+      await cancelBooking.mutateAsync(bookingId);
+      toast("You've left the queue", "info");
+    } catch {
+      toast("Couldn't leave queue. Please try again.", "error");
+    }
+  }, [cancelBooking]);
+
+  const handleReschedule = useCallback((booking: ApiBooking) => {
+    const businesses = qc.getQueriesData<{ businesses: ApiBusiness[] }>({ queryKey: ["businesses"] });
+    let foundBusiness: FullBusiness | undefined;
+
+    for (const [, data] of businesses) {
+      const b = data?.businesses?.find(x => x.id === booking.businessId);
+      if (b) {
+        const detailData = qc.getQueryData<FullBusiness>({ queryKey: ["business", booking.businessId] });
+        if (detailData) { foundBusiness = detailData; break; }
+        break;
+      }
+    }
+
+    if (!foundBusiness) {
+      toast("Opening reschedule…", "info");
+      setModal({ type: "businessDetail", businessId: booking.businessId });
+      return;
+    }
+    setModal({ type: "bookingFlow", business: foundBusiness, initialStep: "datetime" });
+  }, [qc]);
 
   const goToExplore = useCallback((category?: string) => {
     setExploreCategoryFilter(category);
@@ -104,6 +142,10 @@ export function AppShell() {
     setActiveTab(tab);
     setModal(null);
   }, []);
+
+  const handleOpenNotificationBooking = useCallback((bookingId: string) => {
+    goToBookings();
+  }, [goToBookings]);
 
   const initials = auth.user?.name
     ? auth.user.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
@@ -142,9 +184,7 @@ export function AppShell() {
                 <Icon size={19} strokeWidth={active ? 2.5 : 1.8} className={active ? "text-indigo-500" : "text-slate-400"} />
                 <span className="flex-1">{label}</span>
                 {id === "bookings" && bookingCount > 0 && (
-                  <span className="bg-indigo-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
-                    {bookingCount}
-                  </span>
+                  <span className="bg-indigo-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">{bookingCount}</span>
                 )}
                 {active && id !== "bookings" && (
                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
@@ -195,8 +235,10 @@ export function AppShell() {
                 if (!auth.isLoggedIn) { setModal({ type: "login" }); return; }
                 setModal({ type: "notifications" });
               }}
+              onOpenCitySelector={() => setModal({ type: "citySelector" })}
               isLoggedIn={auth.isLoggedIn}
               userName={auth.user?.name ?? undefined}
+              city={city}
               favIds={favIds}
               onToggleFavorite={toggleFav}
             />
@@ -217,18 +259,25 @@ export function AppShell() {
               onGoHome={() => setActiveTab("home")}
               onViewQueue={openQueueTracker}
               onLogin={() => setModal({ type: "login" })}
+              onReschedule={handleReschedule}
             />
           )}
           {activeTab === "profile" && (
             <ProfileTab
               user={auth.user ?? null}
               isLoggedIn={auth.isLoggedIn}
-              unreadCount={0}
+              unreadCount={2}
               onGoHome={() => setActiveTab("home")}
-              onOpenNotifications={() => setModal({ type: "notifications" })}
+              onOpenNotifications={() => {
+                if (!auth.isLoggedIn) { setModal({ type: "login" }); return; }
+                setModal({ type: "notifications" });
+              }}
               onOpenFavourites={() => setModal({ type: "favourites" })}
               onOpenLogin={() => setModal({ type: "login" })}
               onLogout={auth.logout}
+              onEditProfile={() => {
+                if (auth.isLoggedIn) setModal({ type: "editProfile" });
+              }}
             />
           )}
         </div>
@@ -243,7 +292,7 @@ export function AppShell() {
         />
       </nav>
 
-      {/* MODALS */}
+      {/* ── MODALS ─────────────────────────────────────────────────────── */}
       {modal?.type === "login" && (
         <LoginScreen
           onBack={closeModal}
@@ -255,6 +304,7 @@ export function AppShell() {
           }}
         />
       )}
+
       {modal?.type === "businessDetail" && (
         <BusinessDetailSheet
           businessId={modal.businessId}
@@ -265,13 +315,17 @@ export function AppShell() {
           onToggleFavorite={toggleFav}
         />
       )}
+
       {modal?.type === "bookingFlow" && (
         <BookingFlowSheet
           business={modal.business}
           onClose={closeModal}
-          onSuccess={(_booking: ApiBooking) => goToBookings()}
+          onSuccess={() => goToBookings()}
+          initialStep={(modal as { type: "bookingFlow"; initialStep?: BookingFlowStep }).initialStep}
+          initialService={(modal as { type: "bookingFlow"; initialService?: ApiService }).initialService}
         />
       )}
+
       {modal?.type === "queueTracker" && (
         <QueueTrackerSheet
           bookingId={modal.bookingId}
@@ -280,15 +334,42 @@ export function AppShell() {
           initialPosition={modal.initialPosition}
           totalInQueue={modal.totalInQueue}
           onClose={closeModal}
+          onLeaveQueue={handleLeaveQueue}
         />
       )}
-      {modal?.type === "notifications" && <NotificationsPanel onClose={closeModal} />}
+
+      {modal?.type === "notifications" && (
+        <NotificationsPanel
+          onClose={closeModal}
+          onOpenBusiness={id => { closeModal(); openBusinessDetail(id); }}
+          onOpenBooking={handleOpenNotificationBooking}
+        />
+      )}
+
       {modal?.type === "favourites" && (
         <FavouritesSheet
           favIds={favIds}
           onClose={closeModal}
           onViewBusiness={id => { closeModal(); openBusinessDetail(id); }}
           onToggleFavorite={toggleFav}
+        />
+      )}
+
+      {modal?.type === "editProfile" && auth.user && (
+        <EditProfileSheet
+          user={auth.user}
+          onClose={closeModal}
+          onSave={(updated) => {
+            auth.updateUser(updated);
+          }}
+        />
+      )}
+
+      {modal?.type === "citySelector" && (
+        <CitySelector
+          selected={city}
+          onSelect={setCity}
+          onClose={closeModal}
         />
       )}
     </div>

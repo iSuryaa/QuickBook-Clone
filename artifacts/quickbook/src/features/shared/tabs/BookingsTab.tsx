@@ -2,6 +2,8 @@ import { useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { BookingCard } from "@/features/bookings/BookingCard";
 import { BookingDetailSheet } from "@/features/bookings/BookingDetailSheet";
+import { CancelConfirmSheet } from "@/features/bookings/CancelConfirmSheet";
+import { RatingModal } from "@/features/bookings/RatingModal";
 import { BookingCardSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useBookings, useCancelBooking } from "@/hooks/useBookings";
@@ -24,11 +26,14 @@ interface BookingsTabProps {
   onGoHome: () => void;
   onViewQueue: (bookingId: string, businessName: string, businessAddress?: string) => void;
   onLogin: () => void;
+  onReschedule: (booking: ApiBooking) => void;
 }
 
-export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin }: BookingsTabProps) {
+export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin, onReschedule }: BookingsTabProps) {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("all");
   const [detailBooking, setDetailBooking] = useState<ApiBooking | null>(null);
+  const [cancelConfirmBooking, setCancelConfirmBooking] = useState<ApiBooking | null>(null);
+  const [ratingBooking, setRatingBooking] = useState<ApiBooking | null>(null);
 
   const { data, isLoading } = useBookings(isLoggedIn);
   const cancelBooking = useCancelBooking();
@@ -52,32 +57,54 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin }: Book
   const bookings = data?.bookings ?? [];
   const filtered = activeFilter === "all" ? bookings : bookings.filter((b: ApiBooking) => b.status === activeFilter);
 
-  const handleCancel = (id: string) => {
-    cancelBooking.mutate(id, {
+  const handleCancelRequest = (booking: ApiBooking) => {
+    setCancelConfirmBooking(booking);
+  };
+
+  const handleCancelById = (id: string) => {
+    const booking = bookings.find(b => b.id === id);
+    if (booking) setCancelConfirmBooking(booking);
+  };
+
+  const handleCancelConfirm = () => {
+    if (!cancelConfirmBooking) return;
+    cancelBooking.mutate(cancelConfirmBooking.id, {
       onSuccess: (result) => {
-        toast(`Cancelled — ${result.message}`, "success");
+        toast(`Booking cancelled — ${result.message}`, "success");
+        setCancelConfirmBooking(null);
       },
-      onError: (e: any) => toast(e.message ?? "Cancel failed", "error"),
+      onError: (e: any) => {
+        toast(e.message ?? "Cancel failed", "error");
+        setCancelConfirmBooking(null);
+      },
     });
+  };
+
+  const handleRatingSubmit = (rating: number, review: string) => {
+    toast(`Thanks for rating! You gave ${rating} ⭐`, "success");
+    setRatingBooking(null);
   };
 
   return (
     <div className="pt-12 px-4 md:px-8">
       <h1 className="text-xl md:text-2xl font-black mb-4">My Bookings</h1>
 
-      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 mb-5 -mx-4 md:-mx-8 px-4 md:px-8">
-        {TABS.map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setActiveFilter(id)}
-            className={cn(
-              "px-3 py-1.5 md:px-4 md:py-2 rounded-full text-sm font-semibold whitespace-nowrap border transition-all active:scale-95",
-              activeFilter === id ? "bg-indigo-500 text-white border-indigo-500 shadow-sm shadow-indigo-200" : "bg-white text-slate-600 border-slate-200"
-            )}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="relative mb-5">
+        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-4 md:-mx-8 px-4 md:px-8">
+          {TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              onClick={() => setActiveFilter(id)}
+              className={cn(
+                "px-3 py-1.5 md:px-4 md:py-2 rounded-full text-sm font-semibold whitespace-nowrap border transition-all active:scale-95 shrink-0",
+                activeFilter === id ? "bg-indigo-500 text-white border-indigo-500 shadow-sm shadow-indigo-200" : "bg-white text-slate-600 border-slate-200"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="absolute right-0 top-0 bottom-1 w-12 bg-gradient-to-l from-slate-50 to-transparent pointer-events-none" />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-6">
@@ -88,9 +115,11 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin }: Book
               <div className="col-span-full min-h-[40vh] flex items-center justify-center">
                 <EmptyState
                   icon={CalendarDays}
-                  title="No bookings here"
-                  description="Your bookings will appear once you schedule an appointment."
-                  action={{ label: "Explore businesses", onClick: onGoHome }}
+                  title={activeFilter === "all" ? "No bookings yet" : `No ${activeFilter} bookings`}
+                  description={activeFilter === "all"
+                    ? "Start exploring and book your first appointment!"
+                    : `You don't have any ${activeFilter} bookings right now.`}
+                  action={activeFilter === "all" ? { label: "Explore businesses", onClick: onGoHome } : undefined}
                 />
               </div>
             )
@@ -101,8 +130,10 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin }: Book
                     businessName={b.businessName ?? b.businessId}
                     serviceName={b.serviceName ?? ""}
                     onViewDetails={() => setDetailBooking(b)}
-                    onCancel={handleCancel}
+                    onCancel={() => handleCancelRequest(b)}
                     onViewQueue={() => onViewQueue(b.id, b.businessName ?? "", b.businessAddress)}
+                    onReschedule={onReschedule}
+                    onRate={b.status === "completed" ? setRatingBooking : undefined}
                   />
                 </div>
               ))
@@ -115,11 +146,29 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin }: Book
           businessName={detailBooking.businessName ?? detailBooking.businessId}
           businessAddress={detailBooking.businessAddress}
           onClose={() => setDetailBooking(null)}
-          onCancel={handleCancel}
+          onCancel={handleCancelById}
           onViewQueue={() => {
             setDetailBooking(null);
             onViewQueue(detailBooking.id, detailBooking.businessName ?? "", detailBooking.businessAddress);
           }}
+        />
+      )}
+
+      {cancelConfirmBooking && (
+        <CancelConfirmSheet
+          bookingToken={cancelConfirmBooking.token}
+          businessName={cancelConfirmBooking.businessName ?? cancelConfirmBooking.businessId}
+          onConfirm={handleCancelConfirm}
+          onDismiss={() => setCancelConfirmBooking(null)}
+          isLoading={cancelBooking.isPending}
+        />
+      )}
+
+      {ratingBooking && (
+        <RatingModal
+          businessName={ratingBooking.businessName ?? ratingBooking.businessId}
+          onSubmit={handleRatingSubmit}
+          onDismiss={() => setRatingBooking(null)}
         />
       )}
     </div>

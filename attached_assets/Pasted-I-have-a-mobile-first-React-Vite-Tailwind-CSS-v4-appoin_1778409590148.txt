@@ -1,0 +1,116 @@
+I have a mobile-first React + Vite + Tailwind CSS v4 appointment booking app called QuickBook. 
+Please fix all the following issues across UI and features:
+
+---
+
+## MOCK DATA
+1. Expand mock data from 8 to 20 businesses across all 7 categories 
+   (hospitals, salons, cinemas, gyms, restaurants, hotels, + one more category of your choice). 
+   Each business needs: name, category, rating, distance, price range, image placeholder color, 
+   services list, specialists list, reviews, open/closed status, queue data.
+
+---
+
+## UI FIXES
+
+2. CATEGORY PILLS — Add a right-side fade gradient mask on all horizontal pill scroll rows 
+   so users know there's more content to scroll. Use a white-to-transparent gradient overlay.
+
+3. EMPTY STATES — Add illustrated empty states for:
+   - Bookings tab (no bookings yet)
+   - Favourites sheet (nothing saved)
+   - Explore search (no results found)
+   Each should have an emoji/icon, a heading, and a short subtext.
+
+4. SKELETON LOADING — Add shimmer skeleton loaders to Explore tab, Bookings tab, 
+   and Profile tab (not just Home tab). Match the shape of the actual cards.
+
+5. BUSINESS CARDS — Give each category a distinct gradient background color for the 
+   card hero image area (e.g. green for gyms, red for restaurants, blue for hospitals, 
+   purple for salons, orange for cinemas, teal for hotels). Remove any broken image placeholders.
+
+6. BOOKING FLOW — Change the 4-step booking flow from a bottom sheet to a full-screen modal 
+   so the date/time picker and service selection have enough breathing room on small screens.
+
+7. HOME TAB SECTIONS — Add clear section headers ("Featured", "Popular Near You") with 
+   a subtle divider and a "See all" link on the right side of each section header.
+
+8. TOAST POSITIONING — Add bottom padding to ToastContainer so toasts appear above the 
+   bottom navigation bar (account for ~64px nav bar height). Toasts should never overlap the nav.
+
+9. OTP INPUT — Replace the single OTP text input with 6 individual single-character input boxes. 
+   Auto-advance focus to the next box on each keypress. Auto-submit when all 6 are filled. 
+   Auto-backspace to previous box on delete.
+
+10. PLATFORM FEE VISIBILITY — Show the ₹29 platform fee on the SERVICE SELECTION step 
+    (step 1) of the booking flow, not just on the final confirmation screen. 
+    Add a small info tooltip explaining what it is.
+
+---
+
+## FEATURE FIXES
+
+11. EXPLORE SEARCH — Make search actually filter businesses client-side by name, category, 
+    and rating. Results should update in real-time as the user types.
+
+12. BOOKING CANCELLATION CONFIRMATION — Before cancelling a booking, show a confirmation 
+    bottom sheet with title "Cancel Booking?", a warning message, and two buttons: 
+    "Keep Booking" (dismiss) and "Yes, Cancel" (destructive red button).
+
+13. RESCHEDULE BOOKING — Add a "Reschedule" option to booking cards (next to Cancel). 
+    Tapping it reopens the booking flow at the date/time picker step (step 2) 
+    with the existing service pre-selected.
+
+14. QUEUE TRACKER — Add a "Leave Queue" button inside the Queue Tracker sheet. 
+    Tapping it shows a confirmation dialog, then cancels the booking and closes the sheet.
+
+15. FAVOURITES NAVIGATION — Tapping a business in the Favourites sheet should close 
+    the sheet and open that business's Business Detail Sheet.
+
+16. NOTIFICATION DEEP LINKS — Tapping a notification should:
+    - For booking notifications → open that booking's detail sheet
+    - For promo notifications → open the relevant business detail sheet
+    - Mark that individual notification as read on tap
+
+17. CINEMA SEAT PICKER LEGEND — Add a color + label legend above the seat grid showing: 
+    Recliner (price), Premium (price), Standard (price), and a "Selected" indicator. 
+    Also show the running total price as seats are selected.
+
+18. LOCATION / CITY SELECTOR — Add a city/area selector on the Home tab header 
+    (next to the greeting, like "Mumbai ▾"). Tapping opens a bottom sheet with 
+    a list of 6-8 Indian cities to choose from. Selected city persists in state 
+    and updates the "near you" label throughout the app.
+
+19. EDIT PROFILE — Add an "Edit Profile" button on the Profile tab. 
+    Tapping opens a sheet where the user can edit their name and email 
+    with basic validation. Save updates the auth store.
+
+20. SHARE BUSINESS — Add a Share icon button on the Business Detail Sheet header. 
+    Tapping it calls the Web Share API (navigator.share) with the business name and app URL. 
+    Fall back to copying the URL to clipboard with a toast confirmation if share API is unavailable.
+
+21. POST-BOOKING RATING — After a booking status changes to "completed", show a 
+    "Rate your experience" banner on the booking card. Tapping opens a modal with 
+    a 5-star rating picker and an optional text review field. On submit, update the 
+    business's review list in the mock data and show a thank-you toast.
+
+---
+
+## ARCHITECTURE FIXES
+
+22. ZUSTAND MIGRATION — Remove all module-level singletons used for cross-component state. 
+    Move all that state into a new uiStore.ts Zustand slice. The uiStore should manage: 
+    which sheet/modal is open, which business is selected, which booking is selected, 
+    active tab, and notification panel visibility.
+
+23. APPSHELL DECOMPOSITION — Break AppShell.tsx into smaller pieces. 
+    Extract sheet rendering into a SheetManager component and tab routing into a TabRouter component. 
+    AppShell itself should only be the layout wrapper.
+
+---
+
+## GENERAL
+- Maintain Plus Jakarta Sans font and Indigo (#6366f1) accent throughout
+- All new components must be TypeScript with proper types
+- All new UI must be mobile-first and consistent with existing Tailwind v4 styling
+- No backend changes needed — all fixes are frontend only

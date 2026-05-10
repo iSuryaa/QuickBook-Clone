@@ -17,12 +17,34 @@ const TYPE_COLOR = {
   queue:    "bg-indigo-100 text-indigo-500",
 };
 
-export function NotificationsPanel({ onClose }: { onClose: () => void }) {
+interface NotificationsPanelProps {
+  onClose: () => void;
+  onOpenBusiness?: (id: string) => void;
+  onOpenBooking?: (bookingId: string) => void;
+}
+
+export function NotificationsPanel({ onClose, onOpenBusiness, onOpenBooking }: NotificationsPanelProps) {
   const [notifs, setNotifs] = useState<Notification[]>(MOCK_NOTIFICATIONS);
 
   const markAll = () => setNotifs(n => n.map(x => ({ ...x, read: true })));
-  const markOne = (id: string) => setNotifs(n => n.map(x => x.id === id ? { ...x, read: true } : x));
   const unread = notifs.filter(n => !n.read).length;
+
+  const handleTap = (n: Notification) => {
+    setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+
+    if (n.type === "booking" || n.type === "queue" || n.type === "reminder") {
+      if (n.bookingId && onOpenBooking) {
+        onClose();
+        onOpenBooking(n.bookingId);
+        return;
+      }
+    }
+    if (n.businessId && onOpenBusiness) {
+      onClose();
+      onOpenBusiness(n.businessId);
+      return;
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 animate-fade-in" onClick={onClose}>
@@ -50,18 +72,31 @@ export function NotificationsPanel({ onClose }: { onClose: () => void }) {
             </div>
           ) : notifs.map(n => {
             const Icon = TYPE_ICON[n.type];
+            const isActionable = !!(n.businessId || n.bookingId);
             return (
-              <button key={n.id} onClick={() => markOne(n.id)}
-                className={cn("w-full flex items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50", !n.read && "bg-indigo-50/40")}>
+              <button
+                key={n.id}
+                onClick={() => handleTap(n)}
+                className={cn(
+                  "w-full flex items-start gap-4 px-5 py-4 text-left transition-colors hover:bg-slate-50",
+                  !n.read && "bg-indigo-50/40",
+                  isActionable && "cursor-pointer"
+                )}
+              >
                 <div className={cn("w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5", TYPE_COLOR[n.type])}>
                   <Icon size={17} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
-                    <p className={cn("text-sm leading-tight", !n.read ? "font-bold text-slate-800" : "font-semibold text-slate-600")}>{n.title}</p>
+                    <p className={cn("text-sm leading-tight", !n.read ? "font-bold text-slate-800" : "font-semibold text-slate-600")}>
+                      {n.title}
+                    </p>
                     <span className="text-[10px] text-slate-400 shrink-0 mt-0.5">{n.time}</span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{n.message}</p>
+                  {isActionable && (
+                    <p className="text-[10px] text-indigo-400 font-semibold mt-1">Tap to view →</p>
+                  )}
                 </div>
                 {!n.read && <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-2" />}
               </button>

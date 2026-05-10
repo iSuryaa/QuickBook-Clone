@@ -44,12 +44,12 @@ function getDateOptions() {
   return opts;
 }
 
-type Step = "service" | "specialist" | "seats" | "datetime" | "payment" | "success";
+export type BookingFlowStep = "service" | "specialist" | "seats" | "datetime" | "payment" | "success";
 
-const STEP_ORDER_NORMAL: Step[] = ["service", "specialist", "datetime", "payment", "success"];
-const STEP_ORDER_CINEMA: Step[] = ["service", "seats", "datetime", "payment", "success"];
+const STEP_ORDER_NORMAL: BookingFlowStep[] = ["service", "specialist", "datetime", "payment", "success"];
+const STEP_ORDER_CINEMA: BookingFlowStep[] = ["service", "seats", "datetime", "payment", "success"];
 
-const STEP_TITLES: Record<Step, string> = {
+const STEP_TITLES: Record<BookingFlowStep, string> = {
   service: "Select service", specialist: "Choose specialist",
   seats: "Choose seats", datetime: "Pick date & time", payment: "Payment", success: "Booking confirmed!",
 };
@@ -58,14 +58,16 @@ interface BookingFlowSheetProps {
   business: ApiBusiness & { services: ApiService[]; staff: ApiStaff[] };
   onClose: () => void;
   onSuccess: (booking: ApiBooking) => void;
+  initialStep?: BookingFlowStep;
+  initialService?: ApiService;
 }
 
-export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSheetProps) {
+export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, initialService }: BookingFlowSheetProps) {
   const isCinema = business.category === "entertainment";
   const stepOrder = isCinema ? STEP_ORDER_CINEMA : STEP_ORDER_NORMAL;
 
-  const [step, setStep] = useState<Step>("service");
-  const [selectedService, setSelectedService] = useState<ApiService | null>(business.services[0] ?? null);
+  const [step, setStep] = useState<BookingFlowStep>(initialStep ?? "service");
+  const [selectedService, setSelectedService] = useState<ApiService | null>(initialService ?? business.services[0] ?? null);
   const [selectedStaff, setSelectedStaff] = useState<ApiStaff | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [seatCount, setSeatCount] = useState(2);
@@ -129,7 +131,7 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
   const sheetContent = (
     <>
       {step !== "success" && (
-        <div className="flex items-center gap-3 px-5 pt-5 pb-4 bg-white rounded-t-3xl border-b border-slate-100 shrink-0">
+        <div className="flex items-center gap-3 px-5 pt-5 pb-4 bg-white rounded-t-3xl md:rounded-t-3xl border-b border-slate-100 shrink-0">
           <button onClick={goBack} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
             {stepIdx === 0 ? <X size={18} /> : <ChevronLeft size={18} />}
           </button>
@@ -150,6 +152,19 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
         {step === "service" && (
           <div className="px-5 py-5 flex flex-col gap-3 pb-32 animate-fade-up">
             <p className="text-xs text-slate-400">What can we help you with?</p>
+
+            <div className="flex items-start gap-2.5 bg-amber-50 rounded-2xl p-3.5 border border-amber-100">
+              <Info size={14} className="text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-amber-700 font-semibold leading-relaxed">
+                  You pay only <strong>₹29 platform fee</strong> to book.
+                </p>
+                <p className="text-xs text-amber-600 leading-relaxed mt-0.5">
+                  Service charges are paid directly at the venue.
+                </p>
+              </div>
+            </div>
+
             {business.services.map(svc => (
               <button key={svc.id} onClick={() => setSelectedService(svc)}
                 className={cn("flex items-center justify-between p-4 bg-white rounded-2xl border text-left transition-all active:scale-[0.99]",
@@ -162,7 +177,7 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                 <div className="flex items-center gap-3 ml-3 shrink-0">
                   <div className="text-right">
                     <span className="text-sm font-bold text-slate-800 block">{svc.price === 0 ? "Free" : formatINR(svc.price)}</span>
-                    <span className="text-[10px] text-slate-400">reference price</span>
+                    <span className="text-[10px] text-slate-400">at venue</span>
                   </div>
                   <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all",
                     selectedService?.id === svc.id ? "border-indigo-500 bg-indigo-500" : "border-slate-300")}>
@@ -171,12 +186,6 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                 </div>
               </button>
             ))}
-            <div className="flex items-start gap-2.5 bg-indigo-50 rounded-2xl p-3.5 border border-indigo-100 mt-1">
-              <Info size={14} className="text-indigo-400 shrink-0 mt-0.5" />
-              <p className="text-xs text-indigo-700 leading-relaxed">
-                Service prices are for reference only. You pay just ₹29 as a platform fee to confirm your booking.
-              </p>
-            </div>
           </div>
         )}
 
@@ -239,10 +248,36 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                 ))}
               </div>
             </div>
+
+            <div className="bg-white rounded-2xl border border-slate-100 p-3 mb-4">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Legend</p>
+              <div className="flex flex-wrap gap-3">
+                {SEAT_CATEGORIES.map(cat => (
+                  <div key={cat.id} className="flex items-center gap-1.5">
+                    <div className={cn("w-4 h-4 rounded", cat.legendColor)} />
+                    <span className="text-xs text-slate-600 font-medium">
+                      {cat.id === "recliner" ? "Recliner" : cat.id === "premium" ? "Premium" : "Standard"} – ₹{cat.price / 100}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded bg-slate-200" />
+                  <span className="text-xs text-slate-500">Booked</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded bg-indigo-500" />
+                  <span className="text-xs text-slate-500">Selected</span>
+                </div>
+              </div>
+            </div>
+
             <CinemaSeatSelector selected={selectedSeats} maxSeats={seatCount} onSelectionChange={setSelectedSeats} />
             {selectedSeats.length > 0 && (
               <div className="mt-4 bg-indigo-50 rounded-2xl p-4 border border-indigo-100 animate-fade-up">
-                <p className="text-xs font-bold text-indigo-600 mb-2">Selected seats</p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-bold text-indigo-600">Selected seats</p>
+                  <p className="text-sm font-black text-indigo-600">{formatINR(seatTotal)} <span className="text-xs font-normal text-indigo-400">total</span></p>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {selectedSeats.map(s => {
                     const row = s.charAt(0);
@@ -250,7 +285,6 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
                     return <span key={s} className={cn("px-2.5 py-1 rounded-full text-xs font-bold", cat?.selectedStyle)}>{s}</span>;
                   })}
                 </div>
-                <p className="text-xs text-indigo-600 mt-2 font-semibold">Seat total (reference): {formatINR(seatTotal)}</p>
               </div>
             )}
           </div>
@@ -298,7 +332,9 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
             )}
             <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
               <div className="px-4 pt-4 pb-3 border-b border-slate-50 flex items-center gap-3">
-                <img src={business.imageUrl} className="w-10 h-10 rounded-xl object-cover" alt="" />
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+                  <span className="font-black text-indigo-500 text-lg">{business.name.charAt(0)}</span>
+                </div>
                 <div>
                   <p className="font-bold text-sm">{business.name}</p>
                   <p className="text-xs text-slate-400">{business.address}</p>
@@ -411,7 +447,7 @@ export function BookingFlowSheet({ business, onClose, onSuccess }: BookingFlowSh
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 animate-fade-in" onClick={step === "success" ? undefined : onClose}>
       <div
-        className="bg-slate-50 w-full max-w-[540px] md:max-w-lg rounded-t-3xl md:rounded-3xl max-h-[94vh] md:max-h-[88vh] flex flex-col animate-slide-up md:mx-4"
+        className="bg-slate-50 w-full md:max-w-2xl h-[96vh] md:h-auto md:max-h-[90vh] rounded-t-3xl md:rounded-3xl flex flex-col animate-slide-up md:mx-4"
         onClick={e => e.stopPropagation()}
       >
         {sheetContent}

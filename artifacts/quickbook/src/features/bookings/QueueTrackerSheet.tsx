@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, MapPin, Clock, Users, Radio, CheckCircle2, Navigation, Ticket } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Users, Radio, CheckCircle2, Navigation, Ticket, LogOut, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface QueueTrackerSheetProps {
@@ -9,11 +9,13 @@ interface QueueTrackerSheetProps {
   initialPosition?: number;
   totalInQueue?: number;
   onClose: () => void;
+  onLeaveQueue?: (bookingId: string) => void;
 }
 
-export function QueueTrackerSheet({ bookingId, businessName, businessAddress, initialPosition = 5, totalInQueue, onClose }: QueueTrackerSheetProps) {
+export function QueueTrackerSheet({ bookingId, businessName, businessAddress, initialPosition = 5, totalInQueue, onClose, onLeaveQueue }: QueueTrackerSheetProps) {
   const total = totalInQueue ?? Math.max(initialPosition + 9, 14);
   const [position, setPosition] = useState(initialPosition);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const estimatedWait = position * 5 + 2;
   const token = bookingId.replace("bk_", "Q-").slice(0, 10);
 
@@ -26,10 +28,14 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
 
   const progress = Math.max(8, ((total - position) / total) * 100);
 
+  const handleLeave = () => {
+    onLeaveQueue?.(bookingId);
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/50 animate-fade-in" onClick={onClose}>
     <div className="w-full md:max-w-lg bg-white md:rounded-3xl max-h-[94vh] flex flex-col animate-slide-up overflow-hidden md:mx-4" onClick={e => e.stopPropagation()}>
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-white shrink-0">
         <button onClick={onClose} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
           <ArrowLeft size={18} />
@@ -48,8 +54,6 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-4 flex flex-col gap-4">
-
-        {/* Position card */}
         <div className="bg-gradient-to-br from-indigo-500 to-violet-600 rounded-2xl p-5 text-white text-center shadow-lg shadow-indigo-200">
           <p className="text-sm font-semibold opacity-75 mb-1">Your position</p>
           <p className="text-6xl font-black mb-1 tracking-tight">#{position}</p>
@@ -60,7 +64,6 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
           <p className="text-xs opacity-60 mt-2">{Math.round(progress)}% ahead of you</p>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-amber-50 rounded-xl p-3 flex items-center gap-2.5 border border-amber-100">
             <Clock size={18} className="text-amber-500 shrink-0" />
@@ -78,7 +81,6 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
           </div>
         </div>
 
-        {/* Token */}
         <div className="bg-white rounded-xl border border-slate-100 p-4 flex items-center gap-3">
           <Ticket size={18} className="text-indigo-400 shrink-0" />
           <div className="flex-1">
@@ -88,7 +90,6 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
           <p className="text-xs text-slate-400">Show at counter</p>
         </div>
 
-        {/* Address */}
         {businessAddress && (
           <div className="bg-slate-50 rounded-xl border border-slate-100 p-3 flex items-start gap-3">
             <MapPin size={15} className="text-indigo-400 shrink-0 mt-0.5" />
@@ -102,7 +103,6 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
           </div>
         )}
 
-        {/* Timeline */}
         <div className="bg-white rounded-xl border border-slate-100 p-4">
           <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Queue Timeline</p>
           <div className="flex flex-col gap-0">
@@ -143,7 +143,6 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
           </div>
         </div>
 
-        {/* Live notice */}
         <div className="bg-indigo-50 rounded-xl border border-indigo-100 p-3 flex items-start gap-2.5">
           <Radio size={14} className="text-indigo-500 shrink-0 mt-0.5 animate-pulse" />
           <p className="text-xs text-indigo-700 leading-relaxed">
@@ -151,16 +150,48 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
           </p>
         </div>
 
-        <button
-          onClick={onClose}
-          className="w-full h-12 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm active:scale-[0.98] transition-transform"
-        >
-          Close
-        </button>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onClose}
+            className="w-full h-12 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm active:scale-[0.98] transition-transform"
+          >
+            Close
+          </button>
+          {onLeaveQueue && (
+            <button
+              onClick={() => setShowLeaveConfirm(true)}
+              className="w-full h-12 bg-red-50 text-red-500 rounded-xl font-bold text-sm active:scale-[0.98] transition-transform border border-red-100 flex items-center justify-center gap-2"
+            >
+              <LogOut size={15} /> Leave Queue
+            </button>
+          )}
+        </div>
 
         <div className="h-2" />
       </div>
     </div>
+
+    {showLeaveConfirm && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 animate-fade-in" onClick={() => setShowLeaveConfirm(false)}>
+        <div className="bg-white rounded-3xl p-6 mx-4 max-w-sm w-full shadow-xl animate-scale-in" onClick={e => e.stopPropagation()}>
+          <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mb-4">
+            <AlertTriangle size={22} className="text-red-500" />
+          </div>
+          <h3 className="font-black text-lg mb-1">Leave Queue?</h3>
+          <p className="text-sm text-slate-500 mb-5 leading-relaxed">
+            You'll lose your current position and your booking will be cancelled. This cannot be undone.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button onClick={handleLeave} className="w-full py-3 bg-red-500 text-white font-bold rounded-2xl text-sm active:scale-[0.98] transition-transform">
+              Yes, Leave Queue
+            </button>
+            <button onClick={() => setShowLeaveConfirm(false)} className="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-2xl text-sm active:scale-[0.98] transition-transform">
+              Stay in Queue
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

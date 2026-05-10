@@ -1,4 +1,5 @@
-import { Calendar, Clock, ChevronRight, XCircle, Radio } from "lucide-react";
+import { useState } from "react";
+import { Calendar, Clock, ChevronRight, XCircle, Radio, RotateCcw, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ApiBooking } from "@/services/api";
 
@@ -18,16 +19,23 @@ interface BookingCardProps {
   onViewDetails: () => void;
   onCancel: (id: string) => void;
   onViewQueue: () => void;
+  onReschedule?: (booking: ApiBooking) => void;
+  onRate?: (booking: ApiBooking) => void;
 }
 
-export function BookingCard({ booking, businessName, serviceName, onViewDetails, onCancel, onViewQueue }: BookingCardProps) {
+export function BookingCard({ booking, businessName, serviceName, onViewDetails, onCancel, onViewQueue, onReschedule, onRate }: BookingCardProps) {
   const status = STATUS_CONFIG[booking.status] ?? STATUS_CONFIG.upcoming;
+  const [rated, setRated] = useState(false);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
       <div className="flex items-start gap-3 p-4">
-        {booking.businessImageUrl && (
+        {booking.businessImageUrl ? (
           <img src={booking.businessImageUrl} alt={businessName} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+        ) : (
+          <div className="w-14 h-14 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+            <span className="text-indigo-500 font-black text-lg">{businessName.charAt(0)}</span>
+          </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
@@ -72,6 +80,21 @@ export function BookingCard({ booking, businessName, serviceName, onViewDetails,
         </div>
       )}
 
+      {booking.status === "completed" && !rated && onRate && (
+        <div className="mx-4 mb-4 bg-amber-50 rounded-xl p-3 border border-amber-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Star size={15} className="text-amber-500 fill-amber-500 shrink-0" />
+            <p className="text-xs font-semibold text-amber-800">Rate your experience</p>
+          </div>
+          <button
+            onClick={() => onRate(booking)}
+            className="text-xs font-bold text-amber-600 border border-amber-200 px-3 py-1.5 rounded-full hover:bg-amber-100 transition-colors"
+          >
+            Rate Now
+          </button>
+        </div>
+      )}
+
       <div className="flex border-t border-slate-50 divide-x divide-slate-50">
         <button onClick={onViewDetails} className="flex-1 py-3 text-xs font-semibold text-slate-600 flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors">
           Details <ChevronRight size={13} />
@@ -79,6 +102,11 @@ export function BookingCard({ booking, businessName, serviceName, onViewDetails,
         {booking.status === "in-queue" && (
           <button onClick={onViewQueue} className="flex-1 py-3 text-xs font-bold text-amber-600 flex items-center justify-center gap-1.5 hover:bg-amber-50 transition-colors">
             <Radio size={13} className="animate-pulse" /> Track Queue
+          </button>
+        )}
+        {booking.status === "upcoming" && onReschedule && (
+          <button onClick={() => onReschedule(booking)} className="flex-1 py-3 text-xs font-semibold text-indigo-500 flex items-center justify-center gap-1.5 hover:bg-indigo-50 transition-colors">
+            <RotateCcw size={13} /> Reschedule
           </button>
         )}
         {booking.status === "upcoming" && (
