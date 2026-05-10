@@ -1,0 +1,56 @@
+# Full Customer-Facing Application Implementation Prompt
+
+**Objective:** Transform the static QuickBook-Clone UI into a fully functional, responsive customer booking platform. The admin API and business logic (refund engine, slot management, etc.) are already built in a separate service. You are strictly working on the **customer-facing frontend** here.
+
+**Project Context (QuickBook-Clone):**
+*   **Tech Stack**: React, TypeScript, Tailwind CSS, Vite. Keep these.
+*   **Design**: Preserve the existing clean, mobile-first (max-width ~540px) layout and color scheme.
+*   **Backend API**: You will connect to the existing admin API. Assume all necessary endpoints (for listings, slots, bookings, auth, waitlist, ratings) are available under a base URL like `/api`. You must create the necessary API service files and custom React Query hooks to fetch this data.
+
+**Crucial First Steps:**
+1.  **Data Layer Setup**: Do not use the mock data file anymore. Delete `src/data/mock.ts`. Create a proper `src/services/api.ts` file with an Axios or Fetch instance. Create custom React Query hooks in a `src/hooks/` directory for `useListings`, `useListingById`, `useSlots`, `useCreateBooking`, `useCustomerBookings`, etc.
+2.  **Routing Setup**: Ensure `react-router-dom` is installed and configured. The bottom navigation tabs (`Home`, `Explore`, `Bookings`, `Profile`) must function correctly to route between pages.
+3.  **Authentication**: Implement an OTP-based login flow. Use the phone number as the primary identifier. Store the JWT token you receive from the backend in `localStorage` or an HTTP-only cookie for protected routes.
+
+**Part A: Implement Core User Flows & Fixes (Priority 1)**
+
+**1. Homepage (`/` route)**
+*   **Dynamic Greeting**: The greeting text (`Good afternoon`) must change based on the time of day (Morning/Afternoon/Evening). If a user is logged in, add their first name (e.g., `Good evening, Surya`).
+*   **Location Awareness**: The `Nearby` text must be dynamic. Request the user's geolocation (with permission). If denied, show a dropdown to manually select a city. Default to a major city like `New Delhi`.
+*   **Enable Category Buttons**: The category buttons must act as filters. Clicking `Salon & Spa` should trigger a React Query call to refetch listings with the category parameter.
+*   **Render Real Listing Cards**: Replace the empty "Featured for you" and "Popular near you" sections with a React Query fetch. The listing cards must display the actual business image, name, rating (with star icon), and a small description or address.
+
+**2. Explore Page (`/explore` route)**
+*   **Search Bar**: Implement a fully functional, debounced (300ms delay) search bar at the top. The search should call the API with the search query.
+*   **Filter & Sort**: Add filter chips for categories and sort options (by Rating, Distance, Price). The URL must update with query parameters to make the page shareable.
+*   **Results Grid**: Display the fetched listings in a 2-column mobile grid. Each card links to the listing's detail page.
+
+**3. Listing Detail Page (`/listing/:id` route)**
+*   **Full Business Info**: Fetch and display all details: image gallery, name, rating, reviews, address (with a map link), and contact button.
+*   **Service Selection**: Show a clear list of services with duration and price. User must be able to select one or more services.
+*   **Slot Picker**: After service selection, the user picks a date and time. The time slot grid must show **real-time availability** from the API. Fully booked slots should show "Join Waitlist".
+*   **Booking Flow Initiation**: After the user picks a valid slot, show a summary of their selection and a prominent "Book Now" button, which proceeds to the booking confirmation/checkout view.
+
+**4. Booking Flow & Checkout (`/booking/confirm` route or inline sheet)**
+*   **Transparent Fee Breakdown**: Display the pricing clearly. Show the **₹29 platform fee (payable now)** and the service price (payable at venue). Use cards/dividers to visually separate "Pay Now" and "At Venue".
+*   **User Details Form**: Collect phone number and an optional name if the user isn't logged in.
+*   **Payment Gateway Integration**: Integrate the **Razorpay Checkout SDK**. On clicking "Pay ₹29", create an order from the backend, then open the Razorpay checkout.
+*   **Post-Payment Success**: On successful payment, show a success screen with the booking ID, a QR code (optional), and an "Add to Calendar" button. Immediately invalidate any relevant React Query caches (like slot availability).
+
+**5. User Bookings & Profile Pages**
+*   **My Bookings (`/bookings` route)**: This is a protected route. Fetch and show all of a user's past and upcoming bookings. Add clear status badges (Upcoming, Completed, Cancelled). Tapping a booking opens a detail sheet with full info.
+*   **Profile Page (`/profile` route)**: For logged-in users, show their name, phone, and a clear "Logout" button. For non-logged-in users, prompt them to log in. Show their current no-show strike count and the platform's cancellation policy clearly.
+
+**Part B: Responsive Design & UI Polish**
+
+1.  **Breakpoints & Layout**: The mobile-first design is strong. Ensure the `max-width: 540px` centered layout is maintained on tablet and small desktop views. For large desktops, consider a subtle grid background or a slightly widened container (e.g., `max-width-2xl`).
+2.  **States & Feedback**: Implement clear UI for all states:
+    *   **Loading**: Show the existing shimmer/skeleton components while data is fetching.
+    *   **Empty**: Show a friendly illustration and message like "No salons available in this area yet" when a search or filter returns no results.
+    *   **Error**: Show a toast message or inline error block with a "Retry" button if a network request fails.
+3.  **Component Consistency**: Align the design of buttons, inputs (search, OTP), badges, and cards with a utility-first philosophy. If you're using a component library, ensure it's consistently applied. If not, create robust, reusable components in a `src/components/ui` folder.
+
+**Testing the Implementation:**
+*   End-to-End Test 1: User opens the app → browses "Salon & Spa" → searches for "Lakmé" → taps the listing → selects a "Facial" → picks a time slot → pays the platform fee → sees the booking confirmation.
+*   End-to-End Test 2: User logs in with phone → visits "Bookings" page → sees their confirmed booking → cancels it → sees the refund appear in the booking details according to the tiered policy.
+*   UI Test: Verify the app is perfectly usable on a 375px iPhone SE screen and looks balanced on a 1920px desktop monitor.
