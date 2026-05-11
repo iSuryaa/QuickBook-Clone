@@ -96,10 +96,16 @@ export function QueueTrackerSheet({ bookingId, businessName, businessAddress, in
             <div className="flex-1 min-w-0">
               <p className="text-sm text-slate-600 font-medium leading-snug">{businessAddress}</p>
               <p className="text-xs text-slate-400 mt-0.5">Head over when position reaches #1–2</p>
+              <a
+                href={`https://maps.google.com/?q=${encodeURIComponent(businessAddress)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 mt-2 text-xs text-indigo-500 font-semibold hover:text-indigo-600 transition-colors"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                Get Directions
+              </a>
             </div>
-            <button className="shrink-0 w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center">
-              <Navigation size={14} className="text-indigo-500" />
-            </button>
           </div>
         )}
 

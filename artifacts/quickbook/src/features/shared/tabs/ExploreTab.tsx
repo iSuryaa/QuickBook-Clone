@@ -112,7 +112,7 @@ export function ExploreTab({ searchQuery, onSearchChange, initialCategory, onVie
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pb-28">
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => <BusinessCardSkeleton key={i} />)
           : filtered.length === 0

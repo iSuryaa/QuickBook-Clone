@@ -2,39 +2,15 @@ import { useState, useCallback } from "react";
 import { Home, Compass, CalendarDays, User, Zap } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { BottomNav, type TabName } from "@/components/ui/BottomNav";
-import { HomeTab } from "./tabs/HomeTab";
-import { ExploreTab } from "./tabs/ExploreTab";
-import { BookingsTab } from "./tabs/BookingsTab";
-import { ProfileTab } from "./tabs/ProfileTab";
-import { BusinessDetailSheet } from "@/features/businesses/BusinessDetailSheet";
-import { BookingFlowSheet, type BookingFlowStep } from "@/features/bookings/BookingFlowSheet";
-import { QueueTrackerSheet } from "@/features/bookings/QueueTrackerSheet";
-import { NotificationsPanel } from "@/features/profile/NotificationsPanel";
-import { FavouritesSheet } from "@/features/profile/FavouritesSheet";
-import { LoginScreen } from "@/features/auth/LoginScreen";
-import { EditProfileSheet } from "@/features/profile/EditProfileSheet";
-import { CitySelector } from "@/features/shared/CitySelector";
+import { TabRouter } from "./TabRouter";
+import { SheetManager, type ModalState, type FullBusiness } from "./SheetManager";
 import { useAuthState } from "@/hooks/useAuth";
 import { useFavoritesStore } from "@/store/favoritesStore";
-import { useCreateBooking } from "@/hooks/useBookings";
-import { useBookings } from "@/hooks/useBookings";
-import { useCancelBooking } from "@/hooks/useBookings";
+import { useCreateBooking, useBookings, useCancelBooking } from "@/hooks/useBookings";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
-import type { ApiBusiness, ApiService, ApiStaff, ApiBooking } from "@/services/api";
-
-type FullBusiness = ApiBusiness & { services: ApiService[]; staff: ApiStaff[] };
-
-type ModalState =
-  | { type: "businessDetail"; businessId: string }
-  | { type: "bookingFlow"; business: FullBusiness; initialStep?: BookingFlowStep; initialService?: ApiService }
-  | { type: "queueTracker"; bookingId: string; businessName: string; businessAddress?: string; initialPosition?: number; totalInQueue?: number }
-  | { type: "notifications" }
-  | { type: "favourites" }
-  | { type: "login"; afterLoginAction?: () => void }
-  | { type: "editProfile" }
-  | { type: "citySelector" }
-  | null;
+import type { ApiBusiness, ApiService, ApiBooking } from "@/services/api";
+import type { BookingFlowStep } from "@/features/bookings/BookingFlowSheet";
 
 const NAV_ITEMS: { id: TabName; label: string; icon: typeof Home }[] = [
   { id: "home", label: "Home", icon: Home },
@@ -143,10 +119,6 @@ export function AppShell() {
     setModal(null);
   }, []);
 
-  const handleOpenNotificationBooking = useCallback((bookingId: string) => {
-    goToBookings();
-  }, [goToBookings]);
-
   const initials = auth.user?.name
     ? auth.user.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase()
     : null;
@@ -176,9 +148,7 @@ export function AppShell() {
                 onClick={() => handleTabChange(id)}
                 className={cn(
                   "flex items-center gap-3 w-full px-4 py-3 rounded-2xl text-sm font-semibold text-left transition-all",
-                  active
-                    ? "bg-indigo-50 text-indigo-600"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                  active ? "bg-indigo-50 text-indigo-600" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                 )}
               >
                 <Icon size={19} strokeWidth={active ? 2.5 : 1.8} className={active ? "text-indigo-500" : "text-slate-400"} />
@@ -225,61 +195,33 @@ export function AppShell() {
       {/* MAIN CONTENT */}
       <main className="flex-1 min-w-0 pb-20 md:pb-8 overflow-y-auto">
         <div className="max-w-5xl mx-auto animate-fade-up">
-          {activeTab === "home" && (
-            <HomeTab
-              onGoExplore={goToExplore}
-              searchQuery={searchQuery}
-              onSearchChange={q => { setSearchQuery(q); if (q) setActiveTab("explore"); }}
-              onViewBusiness={openBusinessDetail}
-              onOpenNotifications={() => {
-                if (!auth.isLoggedIn) { setModal({ type: "login" }); return; }
-                setModal({ type: "notifications" });
-              }}
-              onOpenCitySelector={() => setModal({ type: "citySelector" })}
-              isLoggedIn={auth.isLoggedIn}
-              userName={auth.user?.name ?? undefined}
-              city={city}
-              favIds={favIds}
-              onToggleFavorite={toggleFav}
-            />
-          )}
-          {activeTab === "explore" && (
-            <ExploreTab
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              initialCategory={exploreCategoryFilter}
-              onViewBusiness={openBusinessDetail}
-              favIds={favIds}
-              onToggleFavorite={toggleFav}
-            />
-          )}
-          {activeTab === "bookings" && (
-            <BookingsTab
-              isLoggedIn={auth.isLoggedIn}
-              onGoHome={() => setActiveTab("home")}
-              onViewQueue={openQueueTracker}
-              onLogin={() => setModal({ type: "login" })}
-              onReschedule={handleReschedule}
-            />
-          )}
-          {activeTab === "profile" && (
-            <ProfileTab
-              user={auth.user ?? null}
-              isLoggedIn={auth.isLoggedIn}
-              unreadCount={2}
-              onGoHome={() => setActiveTab("home")}
-              onOpenNotifications={() => {
-                if (!auth.isLoggedIn) { setModal({ type: "login" }); return; }
-                setModal({ type: "notifications" });
-              }}
-              onOpenFavourites={() => setModal({ type: "favourites" })}
-              onOpenLogin={() => setModal({ type: "login" })}
-              onLogout={auth.logout}
-              onEditProfile={() => {
-                if (auth.isLoggedIn) setModal({ type: "editProfile" });
-              }}
-            />
-          )}
+          <TabRouter
+            activeTab={activeTab}
+            searchQuery={searchQuery}
+            onSearchChange={q => { setSearchQuery(q); if (q) setActiveTab("explore"); }}
+            exploreCategoryFilter={exploreCategoryFilter}
+            onGoExplore={goToExplore}
+            onViewBusiness={openBusinessDetail}
+            onOpenNotifications={() => {
+              if (!auth.isLoggedIn) { setModal({ type: "login" }); return; }
+              setModal({ type: "notifications" });
+            }}
+            onOpenCitySelector={() => setModal({ type: "citySelector" })}
+            isLoggedIn={auth.isLoggedIn}
+            user={auth.user ?? null}
+            city={city}
+            favIds={favIds}
+            onToggleFavorite={toggleFav}
+            onGoHome={() => setActiveTab("home")}
+            onViewQueue={openQueueTracker}
+            onLogin={() => setModal({ type: "login" })}
+            onReschedule={handleReschedule}
+            unreadCount={2}
+            onOpenFavourites={() => setModal({ type: "favourites" })}
+            onOpenLogin={() => setModal({ type: "login" })}
+            onLogout={auth.logout}
+            onEditProfile={() => { if (auth.isLoggedIn) setModal({ type: "editProfile" }); }}
+          />
         </div>
       </main>
 
@@ -292,86 +234,23 @@ export function AppShell() {
         />
       </nav>
 
-      {/* ── MODALS ─────────────────────────────────────────────────────── */}
-      {modal?.type === "login" && (
-        <LoginScreen
-          onBack={closeModal}
-          onSuccess={(u, tok) => {
-            auth.setAuth(tok, u);
-            const action = (modal as { type: "login"; afterLoginAction?: () => void }).afterLoginAction;
-            closeModal();
-            action?.();
-          }}
-        />
-      )}
-
-      {modal?.type === "businessDetail" && (
-        <BusinessDetailSheet
-          businessId={modal.businessId}
-          onClose={closeModal}
-          onBook={openBookingFlow}
-          onJoinQueue={handleJoinQueue}
-          isFavorite={favIds.includes(modal.businessId)}
-          onToggleFavorite={toggleFav}
-        />
-      )}
-
-      {modal?.type === "bookingFlow" && (
-        <BookingFlowSheet
-          business={modal.business}
-          onClose={closeModal}
-          onSuccess={() => goToBookings()}
-          initialStep={(modal as { type: "bookingFlow"; initialStep?: BookingFlowStep }).initialStep}
-          initialService={(modal as { type: "bookingFlow"; initialService?: ApiService }).initialService}
-        />
-      )}
-
-      {modal?.type === "queueTracker" && (
-        <QueueTrackerSheet
-          bookingId={modal.bookingId}
-          businessName={modal.businessName}
-          businessAddress={modal.businessAddress}
-          initialPosition={modal.initialPosition}
-          totalInQueue={modal.totalInQueue}
-          onClose={closeModal}
-          onLeaveQueue={handleLeaveQueue}
-        />
-      )}
-
-      {modal?.type === "notifications" && (
-        <NotificationsPanel
-          onClose={closeModal}
-          onOpenBusiness={id => { closeModal(); openBusinessDetail(id); }}
-          onOpenBooking={handleOpenNotificationBooking}
-        />
-      )}
-
-      {modal?.type === "favourites" && (
-        <FavouritesSheet
-          favIds={favIds}
-          onClose={closeModal}
-          onViewBusiness={id => { closeModal(); openBusinessDetail(id); }}
-          onToggleFavorite={toggleFav}
-        />
-      )}
-
-      {modal?.type === "editProfile" && auth.user && (
-        <EditProfileSheet
-          user={auth.user}
-          onClose={closeModal}
-          onSave={(updated) => {
-            auth.updateUser(updated);
-          }}
-        />
-      )}
-
-      {modal?.type === "citySelector" && (
-        <CitySelector
-          selected={city}
-          onSelect={setCity}
-          onClose={closeModal}
-        />
-      )}
+      <SheetManager
+        modal={modal}
+        onClose={closeModal}
+        favIds={favIds}
+        onToggleFavorite={toggleFav}
+        city={city}
+        onSelectCity={setCity}
+        user={auth.user ?? null}
+        onSetAuth={auth.setAuth}
+        onUpdateUser={auth.updateUser}
+        onOpenBusiness={openBusinessDetail}
+        onOpenBookingFlow={openBookingFlow}
+        onJoinQueue={handleJoinQueue}
+        onLeaveQueue={handleLeaveQueue}
+        onGoToBookings={goToBookings}
+        onOpenNotificationBooking={goToBookings}
+      />
     </div>
   );
 }

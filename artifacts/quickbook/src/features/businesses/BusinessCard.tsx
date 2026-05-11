@@ -95,7 +95,7 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
       <div
         onClick={() => onClick(business.id)}
         role="button" tabIndex={0} onKeyDown={e => e.key === "Enter" && onClick(business.id)}
-        className="flex items-center gap-3 w-full bg-white rounded-2xl p-3 border border-slate-100 text-left active:scale-[0.98] transition-transform shadow-sm cursor-pointer"
+        className="flex items-center gap-3 w-full bg-white rounded-2xl p-4 border border-slate-100 text-left active:scale-[0.98] transition-transform shadow-sm cursor-pointer"
       >
         <CompactImage business={business} />
         <div className="flex-1 min-w-0">
@@ -113,6 +113,19 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
               {business.openNow ? "Open" : "Closed"}
             </span>
           </div>
+          {(business as any).hoursDetail && (() => {
+            try {
+              const hours = JSON.parse((business as any).hoursDetail);
+              const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
+              const todayHours = hours[today];
+              if (todayHours) {
+                const closeTime = todayHours.close ?? todayHours.split?.("-")?.[1]?.trim();
+                const openTime = todayHours.open ?? "—";
+                return <p className="text-xs text-slate-400 mt-0.5">{business.openNow ? `Closes ${closeTime}` : `Opens ${openTime}`}</p>;
+              }
+            } catch {}
+            return null;
+          })()}
         </div>
         <button
           onClick={e => { e.stopPropagation(); onToggleFavorite(business.id); }}
@@ -168,6 +181,19 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
           )}
         </div>
         <p className="text-xs text-slate-400 mt-2 line-clamp-1">{business.address}</p>
+        {(business as any).hoursDetail && (() => {
+          try {
+            const hours = JSON.parse((business as any).hoursDetail);
+            const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
+            const todayHours = hours[today];
+            if (todayHours) {
+              const closeTime = todayHours.close ?? todayHours.split?.("-")?.[1]?.trim();
+              const openTime = todayHours.open ?? "—";
+              return <p className="text-xs text-slate-500 mt-1">{business.openNow ? `Closes ${closeTime}` : `Opens ${openTime}`}</p>;
+            }
+          } catch {}
+          return null;
+        })()}
       </div>
     </div>
   );

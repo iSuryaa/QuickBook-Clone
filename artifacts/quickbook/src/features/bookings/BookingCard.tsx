@@ -16,6 +16,7 @@ interface BookingCardProps {
   booking: ApiBooking;
   businessName: string;
   serviceName?: string;
+  staffName?: string;
   onViewDetails: () => void;
   onCancel: (id: string) => void;
   onViewQueue: () => void;
@@ -23,7 +24,7 @@ interface BookingCardProps {
   onRate?: (booking: ApiBooking) => void;
 }
 
-export function BookingCard({ booking, businessName, serviceName, onViewDetails, onCancel, onViewQueue, onReschedule, onRate }: BookingCardProps) {
+export function BookingCard({ booking, businessName, serviceName, staffName, onViewDetails, onCancel, onViewQueue, onReschedule, onRate }: BookingCardProps) {
   const status = STATUS_CONFIG[booking.status] ?? STATUS_CONFIG.upcoming;
   const [rated, setRated] = useState(false);
 
@@ -42,6 +43,7 @@ export function BookingCard({ booking, businessName, serviceName, onViewDetails,
             <div className="min-w-0">
               <p className="font-bold text-sm truncate">{businessName}</p>
               {serviceName && <p className="text-xs text-slate-400 truncate mt-0.5">{serviceName}</p>}
+              {staffName && <p className="text-xs text-slate-400 mt-0.5">{staffName}</p>}
             </div>
             <span className={cn("text-xs font-bold px-2.5 py-1 rounded-full shrink-0", status.color, status.bg)}>
               {status.label}
@@ -95,7 +97,7 @@ export function BookingCard({ booking, businessName, serviceName, onViewDetails,
         </div>
       )}
 
-      <div className="flex border-t border-slate-50 divide-x divide-slate-50">
+      <div className="flex border-t border-slate-100 divide-x divide-slate-100">
         <button onClick={onViewDetails} className="flex-1 py-3 text-xs font-semibold text-slate-600 flex items-center justify-center gap-1.5 hover:bg-slate-50 transition-colors">
           Details <ChevronRight size={13} />
         </button>

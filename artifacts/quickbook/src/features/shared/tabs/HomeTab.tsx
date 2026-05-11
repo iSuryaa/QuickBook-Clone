@@ -45,7 +45,7 @@ export function HomeTab({ onGoExplore, searchQuery, onSearchChange, onViewBusine
   }, [isLoggedIn, userName]);
 
   return (
-    <div className="px-4 md:px-8 pt-12 pb-2">
+    <div className="px-4 md:px-8 pt-5 pb-28">
       <div className="flex items-center justify-between mb-5">
         <div>
           <button

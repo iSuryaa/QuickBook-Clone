@@ -147,6 +147,7 @@ export function BookingsTab({ isLoggedIn, onGoHome, onViewQueue, onLogin, onResc
                     booking={b}
                     businessName={b.businessName ?? b.businessId}
                     serviceName={b.serviceName ?? ""}
+                    staffName={(b as any).staffName}
                     onViewDetails={() => setDetailBooking(b)}
                     onCancel={() => handleCancelRequest(b)}
                     onViewQueue={() => onViewQueue(b.id, b.businessName ?? "", b.businessAddress)}

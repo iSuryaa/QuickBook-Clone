@@ -1,0 +1,232 @@
+# QuickBook Customer App — UI Fixes & Information Surfacing
+
+**Repo:** iSuryaa/QuickBook-Clone  
+**Base:** `artifacts/quickbook/src/`
+
+## PART 1 — Padding & Spacing Fixes
+
+### 1. HomeTab.tsx
+- Find the outermost `<div>` wrapper. Add `pb-28` to its className.
+- Change top padding from `pt-12` to `pt-5`.
+
+### 2. ExploreTab.tsx
+- Find the grid/list container `<div>` and change `pb-6` (or current value) to `pb-28`.
+
+### 3. BookingsTab.tsx
+- Find the grid container `<div>` (around line 63-70) and change `pb-6` to `pb-28`.
+
+### 4. ProfileTab.tsx
+- Change `pb-8` to `pb-28` on the outer container.
+- Change `md:px-6` to `md:px-8` for desktop consistency.
+
+### 5. BusinessCard.tsx (compact variant)
+- Line 48: Change `p-3` to `p-4`.
+
+### 6. BookingCard.tsx
+- Add `border-t border-slate-100` to the action buttons row `<div>` (the Details/Reschedule/Cancel row around line 57).
+
+---
+
+## PART 2 — Architecture Refactor
+
+### 7. Create SheetManager.tsx in `features/shared/`
+Extract all modal/sheet rendering from `AppShell.tsx` lines 130-144:
+interface SheetManagerProps {
+modal: ModalState;
+onClose: () => void;
+// ... all callback props currently passed inline
+}
+
+text
+
+Move these into SheetManager:
+- LoginScreen (type: "login")
+- BusinessDetailSheet (type: "businessDetail")
+- BookingFlowSheet (type: "bookingFlow")
+- QueueTrackerSheet (type: "queueTracker")
+- NotificationsPanel (type: "notifications")
+- FavouritesSheet (type: "favourites")
+- EditProfileSheet (type: "editProfile")
+- CitySelector (type: "citySelector")
+
+### 8. Create TabRouter.tsx in `features/shared/`
+Extract tab routing from AppShell lines 114-127:
+interface TabRouterProps {
+activeTab: string;
+// ... all props needed by each tab
+}
+
+text
+
+Map `activeTab` to: HomeTab, ExploreTab, BookingsTab, ProfileTab.
+
+### 9. AppShell.tsx — simplified to pure layout
+After extraction, AppShell should only contain:
+- Desktop sidebar
+- `<main><TabRouter ... /></main>`
+- Bottom nav
+- `<SheetManager ... />`
+
+### 10. BookingFlowSheet.tsx — full-screen on mobile
+Find the return statement's outer wrapper (around line 316). Change mobile behavior:
+// Current (bottom sheet):
+
+<div className="fixed inset-x-0 bottom-0 z-50 ...">
+// New (full-screen on mobile):
+
+<div className="fixed inset-0 z-50 bg-white flex flex-col md:flex md:items-center md:justify-center md:bg-black/60"> ```
+Inner container change:
+
+text
+// Current:
+<div className="bg-white rounded-t-3xl max-h-[90vh] overflow-y-auto">
+
+// New:
+<div className="w-full h-full md:h-auto md:max-w-lg md:rounded-3xl md:max-h-[90vh] flex flex-col overflow-hidden">
+PART 3 — Information Surfacing
+
+11. BookingFlowSheet.tsx — "success" step (around line 283-299)
+
+Replace the current success content with a full confirmation card:
+
+tsx
+{step === "success" && (
+  <div className="flex flex-col items-center text-center px-4 py-8">
+    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+      <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+    </div>
+    <h2 className="text-xl font-bold mb-1">You're booked!</h2>
+    <p className="text-slate-500 text-sm mb-6">
+      Your {isCinema ? "seats are" : "appointment at"} {business.name} is confirmed.
+    </p>
+    
+    {/* Business info */}
+    <div className="w-full bg-slate-50 rounded-2xl p-4 mb-4 text-left">
+      <p className="font-semibold text-sm">{business.name}</p>
+      <p className="text-xs text-slate-400 mt-1">{business.address}</p>
+      {selectedService && (
+        <p className="text-sm mt-3 font-medium">{selectedService.name}</p>
+      )}
+      {!isCinema && selectedStaff && (
+        <p className="text-xs text-slate-400 mt-1">{selectedStaff.name} • {selectedStaff.role}</p>
+      )}
+    </div>
+    
+    {/* Date & Time */}
+    <div className="w-full bg-slate-50 rounded-2xl p-4 mb-4">
+      <Row icon={<Calendar className="w-4 h-4" />} label="Date" 
+        value={new Date(selectedDate + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} />
+      <Row icon={<Clock className="w-4 h-4" />} label="Time" value={selectedTime} />
+      {isCinema && selectedSeats.length > 0 && (
+        <Row icon={<Ticket className="w-4 h-4" />} label="Seats" value={selectedSeats.join(", ")} />
+      )}
+      {selectedService && (
+        <Row icon={<Users className="w-4 h-4" />} label="Persons" value={isCinema ? seatCount.toString() : "1"} />
+      )}
+    </div>
+    
+    {/* Token */}
+    <div className="w-full bg-indigo-50 rounded-2xl p-4 mb-6">
+      <p className="text-xs text-indigo-400 font-semibold uppercase tracking-wide mb-1">Booking Token</p>
+      <p className="text-2xl font-mono font-bold text-indigo-600 tracking-widest">{confirmedToken}</p>
+      <p className="text-xs text-indigo-400 mt-2">Show this at the venue to check in</p>
+    </div>
+    
+    {/* Add to Calendar */}
+    <button onClick={() => {
+      const startDate = new Date(`${selectedDate}T${selectedTime}`);
+      const endDate = new Date(startDate.getTime() + (selectedService?.duration ?? 30) * 60000);
+      const icsData = `data:text/calendar;charset=utf-8,BEGIN:VCALENDAR...`;
+      // Use Web Calendar API or generate ICS download link
+    }} className="text-sm text-indigo-500 font-semibold mb-4">
+      Add to Calendar
+    </button>
+    
+    <button onClick={() => { onSuccess(/* booking */); onClose(); }}
+      className="w-full py-3 bg-indigo-500 text-white font-bold rounded-xl">
+      View My Bookings
+    </button>
+  </div>
+)}
+12. BookingCard.tsx — add staffName
+
+Add staffName?: string to BookingCardProps interface (line 11-14).
+After the serviceName block (lines 28-32), add:
+tsx
+{staffName && (
+  <p className="text-xs text-slate-400 mt-0.5">{staffName}</p>
+)}
+In BookingsTab.tsx, pass staffName={b.staffName} to each BookingCard.
+13. BookingFlowSheet.tsx — service description
+
+Find the service description render (around line 108-110). Change line-clamp-1 to line-clamp-2:
+
+tsx
+{svc.description && (
+  <p className="text-xs text-slate-400 mt-1 line-clamp-2">{svc.description}</p>
+)}
+14. Time Slot Picker — spotsLeft (✅ ALREADY DONE)
+
+No changes needed. Lines 216-229 already show "3 left" in amber when spotsLeft <= 3.
+
+15. BusinessCard.tsx — closing time
+
+In both default and compact variants, add below the existing meta row:
+
+tsx
+{/* Parse hoursDetail for today's day */}
+{business.hoursDetail && (() => {
+  try {
+    const hours = JSON.parse(business.hoursDetail);
+    const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
+    const todayHours = hours[today];
+    if (todayHours) {
+      const closeTime = todayHours.close ?? todayHours.split("-")[1]?.trim();
+      return <p className="text-xs text-slate-500 mt-1">
+        {business.openNow ? `Closes ${closeTime}` : `Opens ${todayHours.open ?? "—"}`}
+      </p>;
+    }
+  } catch {}
+  return null;
+})()}
+16. QueueTrackerSheet.tsx — directions link
+
+Below the address display (line 52), add:
+
+tsx
+{businessAddress && (
+  <a href={`https://maps.google.com/?q=${encodeURIComponent(businessAddress)}`}
+    target="_blank" rel="noopener noreferrer"
+    className="flex items-center gap-2 mt-2 text-xs text-indigo-500 font-semibold hover:text-indigo-600">
+    <Navigation className="w-3.5 h-3.5" />
+    Get Directions
+  </a>
+)}
+17. BookingFlowSheet.tsx — payment step cancellation policy
+
+Below the "You pay only ₹29..." text (line 275-276), add:
+
+tsx
+<p className="text-xs text-slate-400 italic mt-3 leading-relaxed">
+  Free cancellation up to 2 hours before your appointment. Platform fee is non-refundable after booking.
+</p>
+Verification Checklist
+
+Mobile (375px): Last card no longer hidden behind bottom nav (all tabs)
+Desktop (1440px): Sidebar visible, content centered, 3-column grid
+Booking success shows all details: address, service, date, time, specialist, seats, token
+Booking cards show staff name below service
+Service descriptions show 2 lines
+Time slots show "3 left" when low availability
+Business cards show closing/opening time
+Queue tracker has "Get Directions" link
+Payment step shows cancellation policy
+Booking flow is full-screen on mobile
+SheetManager and TabRouter separate concerns from AppShell
+text
+
+---
+
+## Summary
+
+Your codebase is already very strong — the heavy lifting is done. The remaining work is **polish and completeness**: fixing padding so nothing gets hidden behind the nav, surfacing missing information that builds user trust, and cleaning up the architecture. All 17 fixes above can be implemented in a single session with the provided prompt.

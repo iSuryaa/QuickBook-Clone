@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { X, ChevronLeft, Calendar, Clock, CheckCircle2, Star, CreditCard, Ticket, PartyPopper, Armchair, Info } from "lucide-react";
+import { X, ChevronLeft, Calendar, Clock, CheckCircle2, Star, CreditCard, Ticket, PartyPopper, Armchair, Info, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCreateBooking, useSlots } from "@/hooks/useBookings";
 import { processPayment } from "@/services/payment";
@@ -196,7 +196,7 @@ export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, in
                   selectedService?.id === svc.id ? "border-indigo-400 shadow-sm shadow-indigo-100 bg-indigo-50/20" : "border-slate-100")}>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold">{svc.name}</p>
-                  {svc.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{svc.description}</p>}
+                  {svc.description && <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{svc.description}</p>}
                   {svc.duration > 0 && <p className="text-xs text-slate-400 mt-1 flex items-center gap-1"><Clock size={9} /> {formatDuration(svc.duration)}</p>}
                 </div>
                 <div className="flex items-center gap-3 ml-3 shrink-0">
@@ -451,7 +451,12 @@ export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, in
 
             <div className="bg-amber-50 rounded-2xl p-4 flex items-start gap-3 border border-amber-100">
               <Ticket size={15} className="text-amber-500 shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-700 leading-relaxed">You pay only ₹29 to reserve your slot. The service fee is paid directly at the venue.</p>
+              <div>
+                <p className="text-xs text-amber-700 leading-relaxed">You pay only ₹29 to reserve your slot. The service fee is paid directly at the venue.</p>
+                <p className="text-xs text-slate-400 italic mt-3 leading-relaxed">
+                  Free cancellation up to 2 hours before your appointment. Platform fee is non-refundable after booking.
+                </p>
+              </div>
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-100 p-4">
@@ -467,28 +472,47 @@ export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, in
         )}
 
         {step === "success" && (
-          <div className="flex flex-col items-center justify-center py-10 px-6 text-center animate-scale-in">
-            <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center mb-5">
-              <PartyPopper size={42} className="text-emerald-500" />
+          <div className="flex-1 overflow-y-auto no-scrollbar">
+            <div className="flex flex-col items-center text-center px-4 py-8 animate-scale-in">
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+              </div>
+              <h2 className="text-xl font-bold mb-1">You're booked!</h2>
+              <p className="text-slate-500 text-sm mb-6">
+                Your {isCinema ? "seats are" : "appointment at"} <strong>{business.name}</strong> is confirmed.
+              </p>
+
+              <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-4 text-left">
+                <p className="font-semibold text-sm">{business.name}</p>
+                <p className="text-xs text-slate-400 mt-1">{business.address}</p>
+                {selectedService && (
+                  <p className="text-sm mt-3 font-medium">{selectedService.name}</p>
+                )}
+                {!isCinema && selectedStaff && (
+                  <p className="text-xs text-slate-400 mt-1">{selectedStaff.name} · {selectedStaff.role}</p>
+                )}
+              </div>
+
+              <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-4 flex flex-col gap-2.5">
+                <Row icon={<Calendar className="w-4 h-4 text-indigo-400" />} label="Date"
+                  value={new Date(selectedDate + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} />
+                <Row icon={<Clock className="w-4 h-4 text-indigo-400" />} label="Time" value={selectedTime} />
+                {isCinema && selectedSeats.length > 0 && (
+                  <Row icon={<Ticket className="w-4 h-4 text-indigo-400" />} label="Seats" value={selectedSeats.join(", ")} />
+                )}
+                <Row icon={<Users className="w-4 h-4 text-indigo-400" />} label="Persons" value={isCinema ? seatCount.toString() : "1"} />
+              </div>
+
+              <div className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl p-4 mb-6">
+                <p className="text-xs text-indigo-400 font-semibold uppercase tracking-wide mb-1">Booking Token</p>
+                <p className="text-2xl font-mono font-bold text-indigo-600 tracking-widest">{confirmedToken}</p>
+                <p className="text-xs text-indigo-400 mt-2">Show this at the venue to check in</p>
+              </div>
+
+              <button onClick={onClose} className="w-full py-3.5 bg-indigo-500 text-white font-bold rounded-2xl shadow-md shadow-indigo-200 active:scale-[0.98] transition-transform">
+                View My Bookings
+              </button>
             </div>
-            <h2 className="text-2xl font-black mb-2">You're booked!</h2>
-            <p className="text-slate-500 text-sm mb-6">
-              Your {isCinema ? "seats are" : "appointment at"} <strong>{business.name}</strong> is confirmed.
-            </p>
-            <div className="bg-white rounded-2xl border border-slate-100 p-6 w-full mb-5">
-              <p className="text-xs text-slate-400 mb-1">Booking Token</p>
-              <p className="text-3xl font-black text-indigo-500 tracking-widest">{confirmedToken}</p>
-              <p className="text-xs text-slate-400 mt-2">Show this at the venue to check in</p>
-            </div>
-            <div className="w-full text-sm text-slate-600 bg-white rounded-2xl border border-slate-100 p-4 flex flex-col gap-2.5">
-              {selectedService && <SRow label="Service" value={selectedService.name} />}
-              {isCinema && selectedSeats.length > 0 && <SRow label="Seats" value={selectedSeats.join(", ")} />}
-              <SRow label="Date & Time" value={`${new Date(selectedDate + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} · ${selectedTime}`} />
-              <SRow label="Platform fee paid" value="₹29" />
-            </div>
-            <button onClick={onClose} className="mt-6 w-full h-14 bg-indigo-500 text-white rounded-2xl font-bold shadow-md shadow-indigo-200 active:scale-[0.98] transition-transform">
-              View My Bookings
-            </button>
           </div>
         )}
       </div>
@@ -516,9 +540,9 @@ export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, in
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 animate-fade-in" onClick={step === "success" ? undefined : onClose}>
+    <div className="fixed inset-0 z-50 bg-white flex flex-col md:flex md:items-center md:justify-center md:bg-black/60 animate-fade-in">
       <div
-        className="bg-slate-50 w-full md:max-w-2xl h-[96vh] md:h-auto md:max-h-[90vh] rounded-t-3xl md:rounded-3xl flex flex-col animate-slide-up md:mx-4"
+        className="w-full h-full md:h-auto md:max-w-2xl md:rounded-3xl md:max-h-[90vh] flex flex-col overflow-hidden bg-slate-50 animate-slide-up"
         onClick={e => e.stopPropagation()}
       >
         {sheetContent}
