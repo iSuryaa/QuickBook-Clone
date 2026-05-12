@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable, businessesTable, servicesTable } from "@workspace/db";
+import { bookingsTable, businessesTable, servicesTable, usersTable } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
-import { requireAuth, type AuthRequest } from "../middlewares/requireAuth";
+import { requireAuth, optionalAuth, type AuthRequest } from "../middlewares/requireAuth";
 import { z } from "zod/v4";
 import crypto from "crypto";
 
@@ -11,20 +11,27 @@ const router = Router();
 function generateToken() {
   return `QB-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 }
-function generateId() {
-  return `bk_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+function generateId(prefix = "bk") {
+  return `${prefix}_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+function generateRatingToken() {
+  return crypto.randomUUID();
 }
 
 const CreateBookingBody = z.object({
-  businessId: z.string(),
+  businessId: z.string().optional(),
+  listingId: z.string().optional(),
   serviceId: z.string().optional(),
   staffId: z.string().optional(),
   date: z.string(),
   time: z.string(),
-  persons: z.number().int().min(1).max(10).default(1),
+  persons: z.number().int().min(1).max(20).default(1),
   seats: z.array(z.string()).optional(),
   notes: z.string().optional(),
   isQueueJoin: z.boolean().optional(),
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
+  paymentId: z.string().optional(),
 });
 
 router.get("/bookings", requireAuth, async (req: AuthRequest, res) => {
@@ -49,26 +56,61 @@ router.get("/bookings", requireAuth, async (req: AuthRequest, res) => {
   res.json({ bookings: enriched });
 });
 
-router.post("/bookings", requireAuth, async (req: AuthRequest, res) => {
+router.post("/bookings", optionalAuth, async (req: AuthRequest, res) => {
   const parsed = CreateBookingBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: "Invalid booking data", issues: parsed.error.issues }); return; }
 
-  const { businessId, serviceId, staffId, date, time, persons, seats, notes, isQueueJoin } = parsed.data;
+  const {
+    businessId: rawBusinessId, listingId,
+    serviceId, staffId, date, time, persons, seats, notes, isQueueJoin,
+    customerName, customerPhone, paymentId,
+  } = parsed.data;
+
+  const businessId = rawBusinessId ?? listingId;
+  if (!businessId) { res.status(400).json({ error: "businessId or listingId is required" }); return; }
 
   const biz = await db.query.businessesTable.findFirst({ where: eq(businessesTable.id, businessId) });
   if (!biz) { res.status(404).json({ error: "Business not found" }); return; }
 
-  const id = generateId();
+  let userId = req.userId ?? null;
+
+  if (!userId) {
+    if (!customerPhone) {
+      res.status(400).json({ error: "customerPhone is required for guest bookings" });
+      return;
+    }
+    const existingUser = await db.query.usersTable.findFirst({
+      where: eq(usersTable.phone, customerPhone),
+    });
+    if (existingUser) {
+      userId = existingUser.id;
+      if (customerName && !existingUser.name) {
+        await db.update(usersTable).set({ name: customerName }).where(eq(usersTable.id, userId));
+      }
+    } else {
+      userId = generateId("usr");
+      await db.insert(usersTable).values({ id: userId, phone: customerPhone, name: customerName ?? null });
+    }
+  }
+
+  const id = generateId("bk");
   const token = generateToken();
+  const ratingToken = generateRatingToken();
   const status = isQueueJoin ? "in-queue" : "upcoming";
   const queuePosition = isQueueJoin ? biz.queueCount + 1 : undefined;
   const totalQueue = isQueueJoin ? biz.queueCount + 1 : undefined;
   const estimatedWait = isQueueJoin ? biz.waitTimeMinutes : undefined;
 
+  const svc = serviceId ? await db.query.servicesTable.findFirst({ where: eq(servicesTable.id, serviceId) }) : null;
+  const serviceFeeAmount = svc ? svc.price : 0;
+
   await db.insert(bookingsTable).values({
-    id, userId: req.userId!, businessId, serviceId: serviceId ?? null,
+    id, userId, businessId, serviceId: serviceId ?? null,
     staffId: staffId ?? null, date, time, persons, status,
-    token, queuePosition, totalQueue, estimatedWait,
+    token, ratingToken,
+    queuePosition: queuePosition ?? null,
+    totalQueue: totalQueue ?? null,
+    estimatedWait: estimatedWait ?? null,
     seats: seats ?? null, platformFee: 2900, notes: notes ?? null,
   });
 
@@ -79,12 +121,27 @@ router.post("/bookings", requireAuth, async (req: AuthRequest, res) => {
   }
 
   const booking = await db.query.bookingsTable.findFirst({ where: eq(bookingsTable.id, id) });
-  res.status(201).json({ booking, businessName: biz.name, businessAddress: biz.address });
+  res.status(201).json({
+    booking: {
+      ...booking,
+      businessName: biz.name,
+      businessAddress: biz.address,
+      businessImageUrl: biz.imageUrl,
+      serviceName: svc?.name ?? null,
+    },
+    token,
+    platformFee: 2900,
+    serviceFeeAmount,
+    status: "confirmed",
+    paymentId: paymentId ?? null,
+    businessName: biz.name,
+    businessAddress: biz.address,
+  });
 });
 
 router.patch("/bookings/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
   const booking = await db.query.bookingsTable.findFirst({
-    where: and(eq(bookingsTable.id, req.params.id), eq(bookingsTable.userId, req.userId!)),
+    where: and(eq(bookingsTable.id, req.params.id), eq(bookingsTable.userId, req.userId!))!,
   });
   if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
   if (booking.status === "cancelled") { res.status(400).json({ error: "Already cancelled" }); return; }
@@ -101,7 +158,7 @@ router.patch("/bookings/:id/cancel", requireAuth, async (req: AuthRequest, res) 
 
 router.get("/bookings/:id", requireAuth, async (req: AuthRequest, res) => {
   const booking = await db.query.bookingsTable.findFirst({
-    where: and(eq(bookingsTable.id, req.params.id), eq(bookingsTable.userId, req.userId!)),
+    where: and(eq(bookingsTable.id, req.params.id), eq(bookingsTable.userId, req.userId!))!,
   });
   if (!booking) { res.status(404).json({ error: "Not found" }); return; }
 

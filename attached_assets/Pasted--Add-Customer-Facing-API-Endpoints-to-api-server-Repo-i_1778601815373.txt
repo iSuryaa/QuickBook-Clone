@@ -1,0 +1,189 @@
+# Add Customer‑Facing API Endpoints to api-server
+
+**Repo:** iSuryaa/QuickBook-Clone  
+**Target:** `artifacts/api-server/src/routes/customer.ts` (new file)  
+**Existing database:** Drizzle ORM, all tables already defined in `lib/db/schema.ts`  
+**Existing middleware:** JWT auth, provider scope, rate limiting — reuse where needed.
+
+Add the following public routes. Use Zod for request validation, Drizzle for queries, and the existing error handling pattern.  
+All monetary values are in paise (integers). Platform fee is read from `system_config` or the provider’s override.
+
+---
+
+## 1. `GET /api/listings`
+**Purpose:** Browse businesses for the customer homepage/explore.
+
+**Query params (optional):**
+- `category` (string) – filter by business category
+- `city` (string) – filter by city name
+- `search` (string) – search in name, address, services
+- `lat` & `lng` (float) – for distance sorting (optional; return `distanceKm` as `null` if not provided)
+- `page` & `limit` (int, default 1 & 20)
+
+**Response:**
+```json
+{
+  "listings": [
+    {
+      "id": "...",
+      "name": "...",
+      "category": "salon",
+      "image": "https://...",
+      "averageRating": 4.5,
+      "totalRatings": 120,
+      "distanceKm": 2.3,
+      "city": "New Delhi",
+      "openNow": true,
+      "services": [
+        { "id": "...", "name": "Haircut", "durationMin": 30, "price": 50000 }
+      ]
+    }
+  ],
+  "total": 45,
+  "page": 1,
+  "limit": 20
+}
+Implementation: Query providers table filtered by isVerified = 'approved', isActive = true. Join with services to fetch service list. If lat/lng present, calculate distance using a simple Haversine formula (or use PostGIS if available, else compute in JavaScript). Sort by distance if provided, else by averageRating DESC.
+
+2. GET /api/listings/:id
+
+Purpose: Full detail for a single business.
+
+Response: Include all public fields: name, category, images, address, latitude, longitude, phone, averageRating, totalRatings, openingHours (as JSON), services (array), reviews (latest 10, each with rating, comment, customerName, date).
+
+Implementation: Fetch provider by id. Ensure isVerified and isActive. Include reviews from the ratings table, joined with users for customer name.
+
+3. GET /api/listings/:id/slots
+
+Purpose: Return available time slots for a selected date and service.
+
+Query params (required):
+
+serviceId (string)
+date (string, YYYY-MM-DD)
+Optional: resourceId (string) – if provider has multiple resources.
+
+Response:
+
+json
+{
+  "slots": [
+    { "time": "10:00", "spotsLeft": 2 },
+    { "time": "10:30", "spotsLeft": 0 }
+  ]
+}
+Implementation:
+
+Look up service to get its duration.
+Determine the resource(s) that can perform this service (from resources table + service‑resource mapping).
+Fetch all existing slot_blocks for that resource on that date (both bookings and walk‑ins).
+Generate all possible time slots within the provider’s working hours (from openingHours or providerSettings).
+For each slot, check overlap with slot blocks. Calculate spotsLeft = resource.capacity - occupied (where occupied = number of bookings/walk‑ins overlapping). Return slots where spotsLeft > 0.
+If no resource specified, use the first available resource.
+Important: Use the same findConflicts utility already used in the admin panel.
+
+4. POST /api/bookings
+
+Purpose: Create a new booking (guest or logged‑in customer).
+
+Request body:
+
+json
+{
+  "listingId": "...",
+  "serviceId": "...",
+  "resourceId": "...",
+  "date": "2026-05-14",
+  "time": "14:30",
+  "customerName": "Surya",
+  "customerPhone": "+919876543210",
+  "paymentId": "pay_sim_12345"   // simulated payment ID
+}
+Response: 201 Created with full booking object, including:
+
+token (unique 6‑char code)
+platformFee
+serviceFeeAmount
+status: 'confirmed'
+startTime & endTime
+Implementation:
+
+Validate the slot is still available (re‑check conflicts to avoid race conditions — use a database transaction).
+Compute platformFee from provider settings (or system default). serviceFeeAmount = service price (if provider has opted in for collection; otherwise 0).
+Create the booking record with status confirmed, a generated token (alphanumeric, 6 chars, unique), ratingToken (UUID), and paymentId.
+Create a corresponding slot_block of type booking for the resource and time window (from service duration).
+Insert a transaction of type platform_fee with status retained.
+If serviceFeeAmount > 0, also create a service_fee transaction (status held).
+Return the created booking.
+Auth: Not required for guest. If a customerToken (JWT) is provided in the header, associate the booking with that user. Otherwise, use customerPhone to link to an existing user or create a guest record.
+
+5. GET /api/bookings/:token
+
+Purpose: Look up a booking by its public token (for guest users).
+
+Response: Full booking details (status, business name, service, time, token, etc.).
+
+Implementation: Query bookings table by token. Join with providers and services. Return 404 if not found.
+
+6. POST /api/auth/customer/otp
+
+Purpose: Send OTP to phone (for MVP, accept any valid Indian mobile number and always succeed).
+
+Request: { phone: "+919876543210" }
+Response: { message: "OTP sent", testOtp: "1234" } (only for development; remove testOtp in production).
+
+Implementation: Validate phone format. In dev, just return 1234. No actual SMS integration yet.
+
+7. POST /api/auth/customer/verify
+
+Purpose: Verify OTP and return a JWT.
+
+Request: { phone, otp }
+Response: { token: "jwt...", user: { id, name, phone } }
+
+Implementation: In dev, accept otp === "1234". Find or create user by phone. Generate a JWT with user ID and role customer. Use the same JWT secret as the admin panel but with a different audience if needed.
+
+8. GET /api/customer/bookings (Require customer JWT)
+
+Purpose: Return the logged‑in customer’s booking history.
+
+Response: Array of booking objects, most recent first.
+
+Implementation: Use the customer’s ID from the JWT. Include business name, service, date/time, status, token.
+
+9. POST /api/ratings (Public, with one‑time token)
+
+Purpose: Submit a rating after a completed service.
+
+Request: { token: "ratingToken from booking", rating: 4, comment?: "Great service" }
+Response: { success: true }
+
+Implementation:
+
+Look up booking by ratingToken. Ensure ratingToken is not already used and booking status is arrived or completed.
+Insert rating into ratings table, linked to booking, provider, and customer.
+Update providers.averageRating and totalRatings.
+Mark ratingToken as consumed (set to NULL).
+10. POST /api/waitlist (Public)
+
+Purpose: Join a waitlist for a fully booked slot.
+
+Request: { listingId, date, time, serviceId, customerName, customerPhone }
+Response: { position: 3 }
+
+Implementation:
+
+Verify the slot is indeed full (no spots left).
+Find existing waitlist_entries for the same slot and compute position as count + 1.
+Insert new entry with status waiting.
+Return the position.
+Implementation Notes
+
+Place all routes in a new file: api-server/src/routes/customer.ts.
+Register them in the main Express app with prefix /api (ensure no conflict with existing /provider/ and /admin/ routes).
+Reuse the existing db instance, Drizzle models, and transaction helper.
+Zod schemas for each request body/query should be added in lib/api-spec/schemas/customer.ts and referenced from the routes.
+Add the new endpoints to the OpenAPI spec at lib/api-spec/openapi.yaml.
+For the booking creation, ensure the slot_block insertion and booking insertion happen in a Drizzle transaction to avoid double‑booking.
+The listings endpoints should not expose sensitive provider fields (payout details, internal notes, etc.).
+Testing: manually hit each endpoint using cURL or a REST client after starting the API server.

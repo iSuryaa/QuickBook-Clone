@@ -19,6 +19,7 @@ export const bookingsTable = pgTable("bookings", {
   persons: integer("persons").notNull().default(1),
   status: bookingStatusEnum("status").notNull().default("upcoming"),
   token: text("token").notNull(),
+  ratingToken: text("rating_token"),
   queuePosition: integer("queue_position"),
   totalQueue: integer("total_queue"),
   estimatedWait: integer("estimated_wait"),
@@ -37,7 +38,21 @@ export const reviewsTable = pgTable("reviews", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const waitlistTable = pgTable("waitlist", {
+  id: text("id").primaryKey(),
+  businessId: text("business_id").notNull().references(() => businessesTable.id, { onDelete: "cascade" }),
+  serviceId: text("service_id"),
+  date: text("date").notNull(),
+  time: text("time").notNull(),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone").notNull(),
+  position: integer("position").notNull(),
+  status: text("status").notNull().default("waiting"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertBookingSchema = createInsertSchema(bookingsTable).omit({ id: true, createdAt: true });
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookingsTable.$inferSelect;
 export type Review = typeof reviewsTable.$inferSelect;
+export type Waitlist = typeof waitlistTable.$inferSelect;
