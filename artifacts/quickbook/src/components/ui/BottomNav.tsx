@@ -17,8 +17,8 @@ interface BottomNavProps {
 
 export function BottomNav({ activeTab, onTabChange, bookingCount = 0 }: BottomNavProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 flex justify-center pb-safe">
-      <div className="w-full max-w-[540px] bg-white border-t border-slate-100 shadow-[0_-4px_24px_rgba(0,0,0,0.06)]">
+    <div className="flex justify-center">
+      <div className="w-full bg-white">
         <div className="flex items-center">
           {TABS.map(({ id, label, icon: Icon }) => {
             const active = activeTab === id;
