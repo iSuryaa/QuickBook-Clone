@@ -69,6 +69,9 @@ router.post("/bookings", optionalAuth, async (req: AuthRequest, res) => {
   const businessId = rawBusinessId ?? listingId;
   if (!businessId) { res.status(400).json({ error: "businessId or listingId is required" }); return; }
 
+  const today = new Date().toISOString().slice(0, 10);
+  if (date < today) { res.status(400).json({ error: "Booking date cannot be in the past" }); return; }
+
   const biz = await db.query.businessesTable.findFirst({ where: eq(businessesTable.id, businessId) });
   if (!biz) { res.status(404).json({ error: "Business not found" }); return; }
 
@@ -140,13 +143,14 @@ router.post("/bookings", optionalAuth, async (req: AuthRequest, res) => {
 });
 
 router.patch("/bookings/:id/cancel", requireAuth, async (req: AuthRequest, res) => {
+  const bookingId = String(req.params.id);
   const booking = await db.query.bookingsTable.findFirst({
-    where: and(eq(bookingsTable.id, req.params.id), eq(bookingsTable.userId, req.userId!))!,
+    where: and(eq(bookingsTable.id, bookingId), eq(bookingsTable.userId, req.userId!))!,
   });
   if (!booking) { res.status(404).json({ error: "Booking not found" }); return; }
   if (booking.status === "cancelled") { res.status(400).json({ error: "Already cancelled" }); return; }
 
-  await db.update(bookingsTable).set({ status: "cancelled" }).where(eq(bookingsTable.id, req.params.id));
+  await db.update(bookingsTable).set({ status: "cancelled" }).where(eq(bookingsTable.id, bookingId));
 
   const bookingDate = new Date(`${booking.date}T${booking.time.replace(" AM", "").replace(" PM", "")}:00`);
   const now = new Date();
@@ -157,8 +161,9 @@ router.patch("/bookings/:id/cancel", requireAuth, async (req: AuthRequest, res) 
 });
 
 router.get("/bookings/:id", requireAuth, async (req: AuthRequest, res) => {
+  const bookingId = String(req.params.id);
   const booking = await db.query.bookingsTable.findFirst({
-    where: and(eq(bookingsTable.id, req.params.id), eq(bookingsTable.userId, req.userId!))!,
+    where: and(eq(bookingsTable.id, bookingId), eq(bookingsTable.userId, req.userId!))!,
   });
   if (!booking) { res.status(404).json({ error: "Not found" }); return; }
 

@@ -88,7 +88,7 @@ export function AppShell() {
     for (const [, data] of businesses) {
       const b = data?.businesses?.find(x => x.id === booking.businessId);
       if (b) {
-        const detailData = qc.getQueryData<FullBusiness>({ queryKey: ["business", booking.businessId] });
+        const detailData = qc.getQueryData<FullBusiness>(["business", booking.businessId]);
         if (detailData) { foundBusiness = detailData; break; }
         break;
       }

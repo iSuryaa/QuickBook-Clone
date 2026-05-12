@@ -33,6 +33,7 @@ export function useBusinesses(params?: { category?: string; search?: string }) {
     queryKey: ["businesses", params?.category, params?.search],
     queryFn: () => api.getBusinesses(params),
     staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 
   const mergedData = useMemo(() => {
@@ -73,11 +74,11 @@ export function useBusinessById(id: string | null) {
   });
 }
 
-export function useSlots(businessId: string | null, date: string) {
+export function useSlots(businessId: string | null, serviceId: string | undefined, date: string) {
   return useQuery({
-    queryKey: ["slots", businessId, date],
-    queryFn: () => api.getSlots(businessId!, date),
-    enabled: !!businessId && !!date,
+    queryKey: ["slots", businessId, serviceId, date],
+    queryFn: () => api.getSlots(businessId!, date, serviceId),
+    enabled: !!businessId && !!serviceId && !!date,
     staleTime: 30_000,
   });
 }

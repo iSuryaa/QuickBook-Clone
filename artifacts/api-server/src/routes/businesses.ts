@@ -36,7 +36,7 @@ router.get("/businesses", optionalAuth, async (req: AuthRequest, res) => {
 });
 
 router.get("/businesses/:id", optionalAuth, async (req, res) => {
-  const { id } = req.params;
+  const id = String(req.params.id);
 
   const business = await db.query.businessesTable.findFirst({
     where: eq(businessesTable.id, id),

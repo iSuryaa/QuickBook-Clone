@@ -118,10 +118,12 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
               const hours = JSON.parse((business as any).hoursDetail);
               const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
               const todayHours = hours[today];
-              if (todayHours) {
-                const closeTime = todayHours.close ?? todayHours.split?.("-")?.[1]?.trim();
-                const openTime = todayHours.open ?? "—";
-                return <p className="text-xs text-slate-400 mt-0.5">{business.openNow ? `Closes ${closeTime}` : `Opens ${openTime}`}</p>;
+              if (todayHours && typeof todayHours === "string") {
+                const parts = todayHours.split("-");
+                const closeTime = parts[1]?.trim();
+                const openTime = parts[0]?.trim();
+                if (business.openNow && closeTime) return <p className="text-xs text-slate-400 mt-0.5">Closes {closeTime}</p>;
+                if (!business.openNow && openTime) return <p className="text-xs text-slate-400 mt-0.5">Opens {openTime}</p>;
               }
             } catch {}
             return null;
@@ -186,10 +188,12 @@ export function BusinessCard({ business, isFavorite, onToggleFavorite, onClick, 
             const hours = JSON.parse((business as any).hoursDetail);
             const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
             const todayHours = hours[today];
-            if (todayHours) {
-              const closeTime = todayHours.close ?? todayHours.split?.("-")?.[1]?.trim();
-              const openTime = todayHours.open ?? "—";
-              return <p className="text-xs text-slate-500 mt-1">{business.openNow ? `Closes ${closeTime}` : `Opens ${openTime}`}</p>;
+            if (todayHours && typeof todayHours === "string") {
+              const parts = todayHours.split("-");
+              const closeTime = parts[1]?.trim();
+              const openTime = parts[0]?.trim();
+              if (business.openNow && closeTime) return <p className="text-xs text-slate-500 mt-1">Closes {closeTime}</p>;
+              if (!business.openNow && openTime) return <p className="text-xs text-slate-500 mt-1">Opens {openTime}</p>;
             }
           } catch {}
           return null;

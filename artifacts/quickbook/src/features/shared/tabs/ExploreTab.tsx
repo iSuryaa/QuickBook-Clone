@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { SlidersHorizontal, Search, AlertCircle } from "lucide-react";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { BusinessCard } from "@/features/businesses/BusinessCard";
@@ -32,6 +32,18 @@ export function ExploreTab({ searchQuery, onSearchChange, initialCategory, onVie
   const [activeCategory, setActiveCategory] = useState<CategoryId>((initialCategory as CategoryId) ?? "all");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
+  const [localSearch, setLocalSearch] = useState(searchQuery);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const handleSearchChange = useCallback((q: string) => {
+    setLocalSearch(q);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => onSearchChange(q), 300);
+  }, [onSearchChange]);
+
+  useEffect(() => {
+    setLocalSearch(searchQuery);
+  }, [searchQuery]);
 
   useEffect(() => {
     if (initialCategory) setActiveCategory(initialCategory as CategoryId);
@@ -44,8 +56,8 @@ export function ExploreTab({ searchQuery, onSearchChange, initialCategory, onVie
   const filtered = useMemo(() => {
     let list = data?.businesses ?? [];
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (localSearch.trim()) {
+      const q = localSearch.toLowerCase();
       list = list.filter((b: ApiBusiness) =>
         b.name.toLowerCase().includes(q) ||
         b.category.toLowerCase().includes(q) ||
@@ -71,7 +83,7 @@ export function ExploreTab({ searchQuery, onSearchChange, initialCategory, onVie
       <h1 className="text-xl md:text-2xl font-black mb-4">Explore</h1>
 
       <div className="flex gap-2 mb-4">
-        <SearchBar value={searchQuery} onChange={onSearchChange} placeholder="Search by name, category or area" className="flex-1 max-w-md md:max-w-xl" />
+        <SearchBar value={localSearch} onChange={handleSearchChange} placeholder="Search by name, category or area" className="flex-1 max-w-md md:max-w-xl" />
         <button
           onClick={() => setShowFilters(true)}
           className={cn("w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0 relative transition-all active:scale-95",

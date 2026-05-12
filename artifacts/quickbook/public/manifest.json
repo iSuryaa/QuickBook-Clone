@@ -1,0 +1,14 @@
+{
+  "name": "QuickBook — Skip the Queue",
+  "short_name": "QuickBook",
+  "description": "Book appointments at top salons, hospitals, gyms — instantly.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "categories": ["lifestyle", "health", "productivity"]
+}

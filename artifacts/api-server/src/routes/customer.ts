@@ -14,7 +14,7 @@ import {
   type Staff,
   type Booking,
 } from "@workspace/db";
-import { eq, ilike, or, and, desc } from "drizzle-orm";
+import { eq, ilike, or, and, desc, inArray } from "drizzle-orm";
 import { z } from "zod/v4";
 import crypto from "crypto";
 import { generateToken as generateJwt } from "../lib/auth";
@@ -129,11 +129,11 @@ router.get("/listings", async (req, res) => {
         id: biz.id,
         name: biz.name,
         category: biz.category,
-        image: biz.imageUrl,
-        images: biz.photos,
-        averageRating: biz.rating,
-        totalRatings: biz.reviewCount,
-        distanceKm,
+        imageUrl: biz.imageUrl,
+        photos: biz.photos,
+        rating: biz.rating,
+        reviewCount: biz.reviewCount,
+        distanceKm: distanceKm ?? biz.distanceKm,
         city,
         address: biz.address,
         openNow: biz.openNow,
@@ -145,10 +145,12 @@ router.get("/listings", async (req, res) => {
         website: biz.website,
         hours: biz.hours,
         amenities: biz.amenities,
+        hoursDetail: biz.hoursDetail ?? null,
         services: services.map((s: Service) => ({
           id: s.id,
+          businessId: s.businessId,
           name: s.name,
-          durationMin: s.duration,
+          duration: s.duration,
           price: s.price,
           description: s.description,
         })),
@@ -159,7 +161,7 @@ router.get("/listings", async (req, res) => {
   if (lat != null && lng != null) {
     listings.sort((a: any, b: any) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
   } else {
-    listings.sort((a: any, b: any) => b.averageRating - a.averageRating);
+    listings.sort((a: any, b: any) => b.rating - a.rating);
   }
 
   res.json({ listings, total: listings.length, page, limit });
@@ -198,31 +200,34 @@ router.get("/listings/:id", async (req, res) => {
     id: biz.id,
     name: biz.name,
     category: biz.category,
-    image: biz.imageUrl,
-    images: biz.photos,
+    imageUrl: biz.imageUrl,
+    photos: biz.photos,
     address: biz.address,
     city,
     phone: biz.phone,
     website: biz.website,
     description: biz.description,
     hours: biz.hours,
-    hoursDetail: biz.hoursDetail ? JSON.parse(biz.hoursDetail) : null,
+    hoursDetail: biz.hoursDetail ?? null,
     amenities: biz.amenities,
-    averageRating: biz.rating,
-    totalRatings: biz.reviewCount,
+    rating: biz.rating,
+    reviewCount: biz.reviewCount,
     priceLevel: biz.priceLevel,
     openNow: biz.openNow,
     waitTimeMinutes: biz.waitTimeMinutes,
     queueCount: biz.queueCount,
+    distanceKm: biz.distanceKm,
     services: services.map((s: Service) => ({
       id: s.id,
+      businessId: s.businessId,
       name: s.name,
-      durationMin: s.duration,
+      duration: s.duration,
       price: s.price,
       description: s.description,
     })),
     staff: staff.map((st: Staff) => ({
       id: st.id,
+      businessId: st.businessId,
       name: st.name,
       role: st.role,
       rating: st.rating,
@@ -247,13 +252,40 @@ router.get("/listings/:id/slots", async (req, res) => {
     return;
   }
   const { serviceId, date } = parsed.data;
+  const businessId = req.params.id;
 
-  const service = await db.query.servicesTable.findFirst({
-    where: eq(servicesTable.id, serviceId),
-  });
+  const [biz, service] = await Promise.all([
+    db.query.businessesTable.findFirst({ where: eq(businessesTable.id, businessId) }),
+    db.query.servicesTable.findFirst({ where: eq(servicesTable.id, serviceId) }),
+  ]);
+  if (!biz) { res.status(404).json({ error: "Business not found" }); return; }
   if (!service) { res.status(404).json({ error: "Service not found" }); return; }
 
-  const slots = generateSlots(date, service.duration || 30);
+  const confirmedBookings = await db
+    .select({ time: bookingsTable.time })
+    .from(bookingsTable)
+    .where(
+      and(
+        eq(bookingsTable.businessId, businessId),
+        eq(bookingsTable.serviceId, serviceId),
+        eq(bookingsTable.date, date),
+        inArray(bookingsTable.status, ["upcoming", "in-queue"]),
+      ),
+    );
+
+  const slotCounts = new Map<string, number>();
+  for (const b of confirmedBookings) {
+    slotCounts.set(b.time, (slotCounts.get(b.time) ?? 0) + 1);
+  }
+
+  const SLOT_CAPACITY = 3;
+  const rawSlots = generateSlots(date, service.duration || 30);
+  const slots = rawSlots.map(slot => {
+    const booked = slotCounts.get(slot.time) ?? 0;
+    const spotsLeft = Math.max(0, SLOT_CAPACITY - booked);
+    return { time: slot.time, available: spotsLeft > 0, spotsLeft };
+  });
+
   res.json({ slots, date, serviceId, durationMin: service.duration });
 });
 

@@ -21,7 +21,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  // Auth
+  // Auth — using the original /auth/* routes (6-digit OTP "123456" in dev)
   sendOtp: (phone: string) =>
     request<{ success: boolean; expiresIn: number }>("/auth/send-otp", {
       method: "POST", body: JSON.stringify({ phone }),
@@ -39,27 +39,31 @@ export const api = {
 
   getMe: () => request<{ user: ApiUser & { noShowCount: number } }>("/auth/me"),
 
-  // Businesses
+  // Customer listings (public, no auth required)
   getBusinesses: (params?: { category?: string; search?: string; limit?: number; offset?: number }) => {
     const q = new URLSearchParams();
     if (params?.category && params.category !== "all") q.set("category", params.category);
     if (params?.search) q.set("search", params.search);
     if (params?.limit) q.set("limit", String(params.limit));
-    if (params?.offset) q.set("offset", String(params.offset));
-    return request<{ businesses: ApiBusiness[]; total: number }>(`/businesses?${q}`);
+    if (params?.offset) q.set("page", String(Math.floor((params.offset ?? 0) / (params.limit ?? 20)) + 1));
+    return request<{ listings: ApiBusiness[]; total: number }>(`/listings?${q}`)
+      .then(r => ({ businesses: r.listings, total: r.total }));
   },
 
   getBusinessById: (id: string) =>
-    request<ApiBusiness & { services: ApiService[]; staff: ApiStaff[]; reviews: ApiReview[] }>(`/businesses/${id}`),
+    request<ApiBusiness & { services: ApiService[]; staff: ApiStaff[]; reviews: ApiReview[] }>(`/listings/${id}`),
 
-  getSlots: (businessId: string, date: string) =>
-    request<{ slots: ApiSlot[]; date: string }>(`/businesses/${businessId}/slots?date=${date}`),
+  getSlots: (businessId: string, date: string, serviceId?: string) => {
+    const q = new URLSearchParams({ date });
+    if (serviceId) q.set("serviceId", serviceId);
+    return request<{ slots: ApiSlot[]; date: string; durationMin?: number }>(`/listings/${businessId}/slots?${q}`);
+  },
 
   // Bookings
   getBookings: () => request<{ bookings: ApiBooking[] }>("/bookings"),
 
   createBooking: (data: CreateBookingPayload) =>
-    request<{ booking: ApiBooking; businessName: string; businessAddress: string }>("/bookings", {
+    request<{ booking: ApiBooking; token: string; platformFee: number; status: string; businessName: string; businessAddress: string }>("/bookings", {
       method: "POST", body: JSON.stringify(data),
     }),
 
@@ -69,6 +73,18 @@ export const api = {
     }),
 
   getBooking: (id: string) => request<ApiBooking>(`/bookings/${id}`),
+
+  // Rating
+  submitRating: (data: { token: string; rating: number; comment?: string }) =>
+    request<{ success: boolean }>("/ratings", {
+      method: "POST", body: JSON.stringify(data),
+    }),
+
+  // Waitlist
+  joinWaitlist: (data: { listingId: string; serviceId?: string; date: string; time: string; customerName: string; customerPhone: string }) =>
+    request<{ position: number; waitlistId: string }>("/waitlist", {
+      method: "POST", body: JSON.stringify(data),
+    }),
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -146,6 +162,7 @@ export interface ApiBooking {
   persons: number;
   status: "upcoming" | "in-queue" | "completed" | "cancelled";
   token: string;
+  ratingToken?: string | null;
   queuePosition: number | null;
   totalQueue: number | null;
   estimatedWait: number | null;
@@ -157,10 +174,12 @@ export interface ApiBooking {
   businessAddress?: string;
   businessImageUrl?: string;
   serviceName?: string;
+  staffName?: string;
 }
 
 export interface CreateBookingPayload {
-  businessId: string;
+  businessId?: string;
+  listingId?: string;
   serviceId?: string;
   staffId?: string;
   date: string;
@@ -169,4 +188,7 @@ export interface CreateBookingPayload {
   seats?: string[];
   notes?: string;
   isQueueJoin?: boolean;
+  customerPhone?: string;
+  customerName?: string;
+  paymentId?: string;
 }

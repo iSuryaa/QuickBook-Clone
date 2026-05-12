@@ -56,6 +56,10 @@ export function BookingCard({ booking, businessName, serviceName, staffName, onV
             <span className="flex items-center gap-1"><Clock size={11} />{booking.time}</span>
             <span className="font-mono text-indigo-500 font-bold">{booking.token}</span>
           </div>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-[10px] text-slate-400">Platform fee</span>
+            <span className="text-[10px] font-bold text-indigo-500">₹{((booking.platformFee ?? 2900) / 100).toFixed(0)} paid</span>
+          </div>
         </div>
       </div>
 

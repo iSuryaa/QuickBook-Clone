@@ -1,0 +1,156 @@
+# Complete QuickBook Customer App - Final Overhaul Prompt
+
+**Repo:** iSuryaa/QuickBook-Clone  
+**Target:** Fix every outstanding UI/UX bug, fully integrate the backend, harden security, add missing features, and optimise for production.  
+**Scope:** Both `artifacts/api-server` (backend) and `artifacts/quickbook` (customer frontend). No more piecemeal fixes — everything below must be completed in one pass.
+
+---
+
+## Part A – Backend (API Server) Hardening & Improvements
+
+### 1. Security Middleware (Add to `api-server/src/app.ts`)
+- **Rate Limiting:** Install `express-rate-limit`. Apply different limits per route group:
+  - `/api/auth/*` – 5 requests per minute per IP
+  - `/api/bookings/*` – 20 requests per minute per IP
+  - `/api/*` – 100 requests per minute per IP
+- **Helmet.js:** Add `app.use(helmet())` to set security headers.
+- **CORS:** Restrict origins to your Replit frontend URLs only (e.g., `https://quick-book-clone--surya25sp.replit.app`). Do not use `*`.
+- **Ownership Middleware:** Create middleware that verifies the authenticated user’s ID matches the resource owner (e.g., when accessing a booking). Apply to all `GET /api/bookings/:id` and `PATCH /api/bookings/:id/cancel` routes.
+
+### 2. Input Validation & Sanitisation
+- Every endpoint already uses Zod (keep this). Add `.refine()` or `.superRefine()` to prevent past dates for bookings and nonsensical values.
+- Sanitise string inputs with `.trim()` and `.max()` limits.
+
+### 3. Slot Availability Accuracy (Critical)
+- In `GET /api/businesses/:id/slots`, replace the current random‑ish `spotsLeft` generator with a **real booking count** query.
+- Count existing confirmed bookings for that business, service, date, and time slot from the `bookings` table. Subtract from the service’s `capacity` (or a default of 1 per time slot if no capacity field). Return the actual `spotsLeft`.
+
+### 4. Audit Logging
+- Ensure all admin actions (like manual cancellation by provider, super‑admin disputes) are already logged. For customer actions, log booking creation and cancellation in a simpler `audit_logs` table (if needed later).
+
+### 5. Environment Variables
+- Move all secrets (JWT secret, database URL) to `.env`. Validate they exist on startup.
+
+---
+
+## Part B – Frontend UI & Responsive Design Fixes
+
+### 6. Global Container & Tab Padding
+- **All tabs (Home, Explore, Bookings, Profile):** Ensure each top‑level container has `pb-28` so no content is hidden behind the bottom navigation bar.
+- **HomeTab:** Change top padding from `pt-12` to `pt-5`.
+- **ProfileTab:** Set desktop padding to `md:px-8` (not `md:px-6`).
+
+### 7. Business Card & Booking Card Polish
+- **BusinessCard compact variant:** Change inner padding from `p-3` to `p-4`.
+- **BookingCard:** Add `border-t border-slate-100` above the action buttons row (Details/Reschedule/Cancel) to visually separate it.
+
+### 8. Full‑Screen Booking Flow on Mobile
+- Modify `BookingFlowSheet` so that on mobile it appears as a **full‑screen modal** (`fixed inset-0 bg-white z-50`), not a bottom sheet. On desktop keep the centered dialog.
+
+### 9. Modal/Sheet Consistency
+- Ensure all sheets (QueueTracker, Favourites, Notifications, etc.) appear as **centered dialogs** on `md:` screens, and full‑screen on mobile.
+
+### 10. Refactor AppShell – Extract SheetManager & TabRouter
+- Create `SheetManager.tsx` that receives the modal state and renders the correct sheet/modal. Remove all inline sheet rendering from `AppShell.tsx`.
+- Create `TabRouter.tsx` that maps `activeTab` to the correct tab component.
+- `AppShell.tsx` must only contain the layout skeleton: sidebar + main area + bottom nav + `<SheetManager />`.
+
+---
+
+## Part C – Replace Mock Data with Real API Integration
+
+### 11. API Client Setup
+- Ensure the existing Axios instance (`src/services/api.ts`) points to the API server (use Vite proxy or full URL).
+- Add a request interceptor for JWT tokens (read from `localStorage` or Zustand).
+
+### 12. React Query Hooks
+- Create hooks for every endpoint: `useListings`, `useListing`, `useSlots`, `useCreateBooking`, `useBooking`, `useCustomerBookings`, `useSendOtp`, `useVerifyOtp`, `useSubmitRating`, `useJoinWaitlist`.
+- Use `@tanstack/react-query` with proper `staleTime`, `cacheTime`, and automatic refetching.
+
+### 13. Replace Mock Imports
+- In `HomeTab.tsx`, `ExploreTab.tsx`, replace direct mock data imports with `useListings()`.
+- In `BookingFlowSheet.tsx`, after payment simulation, call `useCreateBooking()` to persist the booking.
+- In `BookingsTab.tsx`, use `useCustomerBookings()` (fetch with auth token).
+- In `BusinessDetailSheet`, fetch listing detail and slots with `useListing` and `useSlots`.
+
+### 14. Authentication Flow
+- Wire up the real OTP send/verify endpoints. On verification, store the JWT and user info in Zustand.
+- Protect routes: if a user tries to access `Bookings` or `Profile` without auth, show the login screen.
+
+---
+
+## Part D – Information Surfaces & Missing Data
+
+### 15. Booking Success Screen (Complete)
+- Display all booking details: business name, address, service, date & time, specialist name (if any), persons count, seats (if cinema), booking token in large monospace font.
+- Add a **“Add to Calendar”** button that generates an ICS file and triggers download.
+
+### 16. BookingCard Enhancements
+- Add `staffName` prop and render below the service name.
+- Show the platform fee paid (₹29) on the card.
+
+### 17. Service Description
+- In the booking flow service selection, change `line-clamp-1` to `line-clamp-2` for better readability.
+
+### 18. Time Slot Spots Left
+- Ensure each time slot button shows `spotsLeft` from the API. If `spotsLeft <= 3`, show in amber text “X left”. If 0, disable the button and show “Full”.
+
+### 19. Business Card Closing Time
+- Parse `hoursDetail` (JSON) to find today’s closing/opening time and display “Closes HH:MM” or “Opens HH:MM” in `xs/slate-500`.
+
+### 20. Queue Tracker Directions
+- Below the business name, show the full address with a MapPin icon.
+- Add a “Get Directions” link that opens Google Maps with the address.
+
+### 21. Payment Step Cancellation Policy
+- Add italic text: “Free cancellation up to 2 hours before your appointment. Platform fee is non-refundable after booking.”
+
+### 22. Profile Tab
+- Show user’s strike count (from API). If >0, link to cancellation policy.
+- Add an “Email Support” link for issues.
+
+### 23. Waitlist Feedback
+- When a user joins the waitlist, display their position and an explanatory note.
+
+---
+
+## Part E – Performance, Accessibility & Additional Features
+
+### 24. Performance
+- Use `React.lazy` and `Suspense` for tab components.
+- Implement image lazy loading (`loading="lazy"`) on all business images.
+- Enable React Query’s `refetchOnWindowFocus` with a reasonable interval.
+
+### 25. PWA (Make App Installable)
+- Generate a `manifest.json` with app name, icons, start URL, and theme colour.
+- Register a service worker (`sw.js`) that caches critical assets.
+- Show a custom “Add to Home Screen” prompt after the second visit.
+
+### 26. Meta Tags & SEO
+- Ensure `index.html` has a descriptive `<title>` and `<meta name="description">`.
+- Add Open Graph tags for social sharing.
+
+### 27. Empty & Error States (Everywhere)
+- **Home/Explore:** When no listings match filters, show an illustration and “No results found”.
+- **Bookings:** Empty state with a link to explore services.
+- **API errors:** Show a toast or inline error with a “Retry” button.
+
+### 28. Debounced Search
+- The search bar should trigger a fetch with a 300ms debounce.
+
+### 29. Push Notifications (Optional but Recommended)
+- Implement a basic notification system for booking reminders (2h and 1h before). For now, use the service worker to show local notifications.
+
+### 30. Analytics (Optional)
+- Add a simple page‑view tracker (e.g., console log or a lightweight service) to understand user flows.
+
+---
+
+## Implementation Order
+1. Backend security & corrections (Part A).
+2. API integration hooks & replacement (Part C).
+3. UI & padding fixes (Part B).
+4. Information surfaces (Part D).
+5. Performance & PWA (Part E).
+
+**After completion, verify by running `pnpm dev` and testing all flows on a mobile and desktop viewport.**

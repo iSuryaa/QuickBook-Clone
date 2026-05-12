@@ -44,6 +44,38 @@ function getDateOptions() {
   return opts;
 }
 
+function downloadICS({ businessName, businessAddress, serviceName, date, time, durationMin, token }: {
+  businessName: string; businessAddress: string; serviceName?: string;
+  date: string; time: string; durationMin?: number; token: string;
+}) {
+  const startDate = new Date(`${date}T00:00:00`);
+  const match = time.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+  if (match) {
+    let h = parseInt(match[1], 10);
+    const m = parseInt(match[2], 10);
+    const ampm = match[3].toUpperCase();
+    if (ampm === "PM" && h !== 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    startDate.setHours(h, m, 0, 0);
+  }
+  const endDate = new Date(startDate.getTime() + (durationMin ?? 30) * 60_000);
+  const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
+  const summary = serviceName ? `${serviceName} at ${businessName}` : `Appointment at ${businessName}`;
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//QuickBook//EN",
+    "BEGIN:VEVENT",
+    `DTSTART:${fmt(startDate)}`, `DTEND:${fmt(endDate)}`,
+    `SUMMARY:${summary}`, `LOCATION:${businessAddress}`,
+    `DESCRIPTION:Booking token\\: ${token}`, "STATUS:CONFIRMED",
+    "END:VEVENT", "END:VCALENDAR",
+  ].join("\r\n");
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `quickbook-${token}.ics`; a.click();
+  URL.revokeObjectURL(url);
+}
+
 export type BookingFlowStep = "service" | "specialist" | "seats" | "datetime" | "payment" | "success";
 
 const STEP_ORDER_NORMAL: BookingFlowStep[] = ["service", "specialist", "datetime", "payment", "success"];
@@ -81,7 +113,7 @@ export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, in
   const createBooking = useCreateBooking();
   const dates = useMemo(() => getDateOptions(), []);
   const timeSlots = useMemo(() => generateTimeSlots(9, 21, 30), []);
-  const { data: slotsData, isLoading: slotsLoading } = useSlots(business.id, selectedDate);
+  const { data: slotsData, isLoading: slotsLoading } = useSlots(business.id, selectedService?.id, selectedDate);
   const apiSlots = slotsData?.slots ?? [];
   const displaySlots = apiSlots.length > 0
     ? apiSlots
@@ -503,11 +535,27 @@ export function BookingFlowSheet({ business, onClose, onSuccess, initialStep, in
                 <Row icon={<Users className="w-4 h-4 text-indigo-400" />} label="Persons" value={isCinema ? seatCount.toString() : "1"} />
               </div>
 
-              <div className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl p-4 mb-6">
+              <div className="w-full bg-indigo-50 border border-indigo-100 rounded-2xl p-4 mb-4">
                 <p className="text-xs text-indigo-400 font-semibold uppercase tracking-wide mb-1">Booking Token</p>
                 <p className="text-2xl font-mono font-bold text-indigo-600 tracking-widest">{confirmedToken}</p>
                 <p className="text-xs text-indigo-400 mt-2">Show this at the venue to check in</p>
               </div>
+
+              <button
+                onClick={() => downloadICS({
+                  businessName: business.name,
+                  businessAddress: business.address,
+                  serviceName: selectedService?.name,
+                  date: selectedDate,
+                  time: selectedTime,
+                  durationMin: selectedService?.duration,
+                  token: confirmedToken,
+                })}
+                className="w-full py-3 mb-3 bg-slate-100 text-slate-700 font-bold rounded-2xl text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform hover:bg-slate-200"
+              >
+                <Calendar className="w-4 h-4 text-indigo-500" />
+                Add to Calendar
+              </button>
 
               <button onClick={onClose} className="w-full py-3.5 bg-indigo-500 text-white font-bold rounded-2xl shadow-md shadow-indigo-200 active:scale-[0.98] transition-transform">
                 View My Bookings
